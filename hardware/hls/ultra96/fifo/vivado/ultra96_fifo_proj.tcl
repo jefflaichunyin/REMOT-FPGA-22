@@ -350,7 +350,7 @@ proc cr_bd_design_1 { parentCell } {
   xilinx.com:ip:proc_sys_reset:5.0\
   xilinx.com:ip:smartconnect:1.0\
   xilinx.com:hls:top:1.0\
-  xilinx.com:ip:zynq_ultra_ps_e:3.3\
+  xilinx.com:ip:zynq_ultra_ps_e:3.4\
   "
 
    set list_ips_missing ""
@@ -440,7 +440,7 @@ proc cr_bd_design_1 { parentCell } {
   set top_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:top:1.0 top_0 ]
 
   # Create instance: zynq_ultra_ps_e_0, and set properties
-  set zynq_ultra_ps_e_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:zynq_ultra_ps_e:3.3 zynq_ultra_ps_e_0 ]
+  set zynq_ultra_ps_e_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:zynq_ultra_ps_e:3.4 zynq_ultra_ps_e_0 ]
   set_property -dict [ list \
    CONFIG.PSU_BANK_0_IO_STANDARD {LVCMOS18} \
    CONFIG.PSU_BANK_1_IO_STANDARD {LVCMOS18} \
@@ -1235,7 +1235,7 @@ set_property EXCLUDE_DEBUG_LOGIC "0" [get_files design_1.bd ]
 set_property GENERATE_SYNTH_CHECKPOINT "1" [get_files design_1.bd ] 
 set_property IS_ENABLED "1" [get_files design_1.bd ] 
 set_property IS_GLOBAL_INCLUDE "0" [get_files design_1.bd ] 
-set_property IS_LOCKED "0" [get_files design_1.bd ] 
+# set_property IS_LOCKED "0" [get_files design_1.bd ] 
 set_property LIBRARY "xil_defaultlib" [get_files design_1.bd ] 
 set_property PATH_MODE "RelativeFirst" [get_files design_1.bd ] 
 set_property PFM_NAME "" [get_files design_1.bd ] 
@@ -1285,7 +1285,7 @@ set_property -name "part" -value "xczu3eg-sbva484-1-i" -objects $obj
 set_property -name "srcset" -value "sources_1" -objects $obj
 set_property -name "incremental_checkpoint" -value "" -objects $obj
 set_property -name "auto_incremental_checkpoint" -value "0" -objects $obj
-set_property -name "incremental_checkpoint.directive" -value "" -objects $obj
+# set_property -name "incremental_checkpoint.directive" -value "" -objects $obj
 set_property -name "rqs_files" -value "" -objects $obj
 set_property -name "incremental_checkpoint.more_options" -value "" -objects $obj
 set_property -name "include_in_archive" -value "1" -objects $obj
