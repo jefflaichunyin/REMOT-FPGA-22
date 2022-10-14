@@ -1,6 +1,5 @@
 from pynq import Overlay 
 from pynq import allocate
-from pynq import Xlnk
 import numpy as np
 import time
 import matplotlib.pyplot as plt
@@ -19,9 +18,8 @@ class Au_fifo:
         self.au_number = au_number
         self.fifo_depth = fifo_depth
         
-        
-        self.in_fifo = Xlnk().cma_array(shape=(self.fifo_depth, ), dtype=self.heatmap_precision)
-        self.out_fifo = Xlnk().cma_array(shape=(self.fifo_depth*16, ), dtype=self.heatmap_precision)
+        self.in_fifo = allocate(shape=(self.fifo_depth*16, ), dtype=self.heatmap_precision)
+        self.out_fifo = allocate(shape=(self.fifo_depth*16, ), dtype=self.heatmap_precision)
         
         self.out_fifo_address = 0x10
         self.init_fifo_address = 0x1c
@@ -75,7 +73,7 @@ class Au_fifo:
             self.status_reg[i] = (pack >> i) & 1
         
     def allocate_event_buffer(self, N):
-        self.event_buffer = Xlnk().cma_array(shape=(N), dtype=self.event_precision)
+        self.event_buffer = allocate(shape=(N), dtype=self.event_precision)
 
         
     def sync_au(self, number):
