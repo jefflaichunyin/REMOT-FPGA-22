@@ -55,6 +55,8 @@ class Controller():
         self.dsMer = args.dsMer
         self.minptsMer = 1
         self.epsMer = 1
+        
+        self.temp = 0
 
         if "inbound" in self.input:
             self.bdspawn1 = 40
@@ -69,11 +71,20 @@ class Controller():
             self.bdkill = -1
 
         self.globalID = -1
+        
+        try:
+            self.ly = args.lx
+            self.ly = args.ly
+            print("lx and ly are set by the config file")
+        except:
+            print("lx and ly are set according to the read events data")
+        
+        
         print("Bitfile = ", args.bitfile)
         if 'hash' in args.bitfile:
             self.AUs = Au_hash(Height=self.ly, Width=self.lx, bitfile=args.bitfile, au_number=args.auNum, fifo_depth=args.auFifo, dAdd=self.dAdd)
         elif 'full' in args.bitfile:
-            self.AUs = Au_full(Height=260, Width=342, bitfile=args.bitfile, au_number=args.auNum, fifo_depth=args.auFifo, dAdd=self.dAdd)
+            self.AUs = Au_full(Height=self.ly, Width=self.lx, bitfile=args.bitfile, au_number=args.auNum, fifo_depth=args.auFifo, dAdd=self.dAdd)
         elif 'fifo' in args.bitfile:
             self.AUs = Au_fifo(Height=self.ly, Width=self.lx, bitfile=args.bitfile, au_number=args.auNum, fifo_depth=args.auFifo)
         else:
@@ -86,16 +97,19 @@ class Controller():
         self.t = self.events[:, 3]
         self.total_time = self.t[-1]
         self.events = np.vstack([x, y, self.t, p]).T
-
-        self.frame_lock = threading.Lock()
-            
+        self.frame_img = None
+        self.frame_ready = threading.Event()
+        self.ts = 0
+        self.previous_render = 0
             
     def Init(self, file):
         if "bound" in self.input:
             self.tFrame = 40000
         else:
             self.tFrame = 44065
-
+        self.tFrame = 40000
+        print("in au_controller init method tFrame is forced to be 25fps")
+            
         self.cmap = io.loadmat('cmap.mat')['cmap'] * 255
         self.events = io.loadmat(file)['events']
         self.lx, self.ly = self.events[:, :2].max(0) + 1
@@ -184,7 +198,7 @@ class Controller():
                 continue
             
             write_au_idx = np.min(idxAU)
-            print("merging{} to {}".format(idxAU, write_au_idx) )
+            #print("merging{} to {}".format(idxAU, write_au_idx) )
             events = np.concatenate(
                 [self.AUs.au_event_fifo[idx] for idx in idxAU], axis=0) 
             events = np.unique(events, axis=0)
@@ -213,10 +227,14 @@ class Controller():
             flag3 = (self.AUs.auBox[idx][1] + self.AUs.auBox[idx][3]) / 2 < self.bdkill
             if flag1 or flag2 or flag3:
                 idxDel.append(idx)
+                #print(idx, "is killed due to ", "flag1 ", flag1, "flag2 ", flag2, "flag3 ", flag3)
+                #print("ts: ", ts)
+                #print("np.max(self.AUs.au_event_fifo[idx][:, 2]): ", np.max(self.AUs.au_event_fifo[idx][:, 2]))
                                  
                               
         if len(idxDel) > 0:
-            print("killing", idxDel)
+            #print(ts)
+            #print("killing", idxDel)
             for idx in idxDel:
                 self.AUs.kill_au(idx)  
 
@@ -236,11 +254,14 @@ class Controller():
                 self.AUs.auNumber[idx][0] = self.globalID
 
     def Animation(self, events, ts):
+        time_now = time.time()
+        fps = int(1/(time_now - self.previous_render))
+        
         self.iFrame[:] = 0
         y = events[:, 1]
         x = events[:, 0]
         self.iFrame[y, x] = [255, 255, 255]
-        
+       
         idxVis = []
         boxes = []
         IDs = []
@@ -250,9 +271,19 @@ class Controller():
         auColors = np.zeros([self.auNum, 3])
         auColors[live_au_list] = self.cmap[cmap_idx]
 
+        if self.temp < 100:
+            self.temp += 1
+        else:
+            self.temp = 0
+            #print("ts", ts)
+            #print("live_au_list: ", live_au_list)
+        
         for j in live_au_list:
             if self.AUs.auNumber[j][0] > 0:
                 idxEvt = self.AUs.au_event_fifo[j][:, 2] >= ts - self.tFrame
+                
+                #print("self.AUs.au_event_fifo[j][:, 2]", self.AUs.au_event_fifo[j][:, 2], " ts - self.tFrame ", ts - self.tFrame)
+                
                 if any(idxEvt):
                     idxVis.append(j)
                     one_frame_events = self.AUs.au_event_fifo[j][idxEvt, :]
@@ -262,8 +293,10 @@ class Controller():
 
         self.tkBoxes.append(boxes)
         self.tkIDs.append(IDs)
-        print("tkid", IDs)
-
+        #print("tkid", IDs)
+        
+        #print("idxVis: ", idxVis)
+        
         if len(idxVis) > 0:
             for j, k in enumerate(idxVis):
                 self.iFrame = cv2.rectangle(
@@ -273,8 +306,14 @@ class Controller():
             for j, k in enumerate(idxVis):
                 self.iFrame = cv2.putText(self.iFrame, '{}'.format(
                     IDs[j]), (boxes[j][0], boxes[j][1]), cv2.FONT_HERSHEY_PLAIN, 1., auColors[k].tolist(), 1)
+                
+        cv2.putText(self.iFrame, str(fps), (7, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (100, 255, 0), 3, cv2.LINE_AA)
+        self.frame_img = cv2.imencode(".jpg", self.iFrame)[1]
+        self.previous_render = time_now
 
     def Process(self, events):
+        # ts appears on index 3 instead of 2
+        #ts = events[-1, 2]
         ts = events[-1, 2]
         self.AUs.stream_in_events(events)
         self.AUs.dump_all_au()
@@ -284,12 +323,28 @@ class Controller():
         self.Merge()
         self.Kill(ts)
         self.UpdateID(ts)
-        with self.frame_lock:
-            self.Animation(events, ts)
+        self.Animation(events, ts)
+        self.frame_ready.set()
+
+#     def StreamEvents(self, events):
+#         ts = events[-1, 2]
+#         self.ts = ts
+#         self.AUs.stream_in_events(events)
+#         self.AUs.dump_all_au()
+#         self.update_box(ts)
+#         self.Animation(events, ts)
+#         self.UpdateID(ts)
+#         self.frame_ready.set()
+        
+#     def Process(self):
+# #         self.AUs.dump_all_au()
+#         self.Split()
+#         self.Merge()
+#         self.Kill(self.ts)
 
     def get_frame(self):
-        with self.frame_lock:
-            return self.iFrame
+        self.frame_ready.wait()
+        return self.frame_img
 
     def Process_all(self):
         number_of_frame = self.total_time // (1 * self.tFrame)

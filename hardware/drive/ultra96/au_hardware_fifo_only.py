@@ -125,7 +125,7 @@ class Au_fifo:
             pass
         end = time.time()
         self.total_time += (end - begin)
-        print("processing {} event using:{}".format(N, end-begin))
+        #print("processing {} event using:{}".format(N, end-begin))
 
     def pack_event(self, events):
         event = events.astype(np.uint64)
