@@ -253,15 +253,10 @@ class Controller():
                 self.globalID += 1
                 self.AUs.auNumber[idx][0] = self.globalID
 
-    def Animation(self, events, ts):
+    def Annotate(self, frame, ts):
         time_now = time.time()
         fps = int(1/(time_now - self.previous_render))
         
-        self.iFrame[:] = 0
-        y = events[:, 1]
-        x = events[:, 0]
-        self.iFrame[y, x] = [255, 255, 255]
-       
         idxVis = []
         boxes = []
         IDs = []
@@ -299,31 +294,33 @@ class Controller():
         
         if len(idxVis) > 0:
             for j, k in enumerate(idxVis):
-                self.iFrame = cv2.rectangle(
-                    self.iFrame, (boxes[j][0], boxes[j][1]), (boxes[j][2], boxes[j][3]), auColors[k].tolist(), 1)
+                cv2.rectangle(
+                    frame, (boxes[j][0], boxes[j][1]), (boxes[j][2], boxes[j][3]), auColors[k].tolist(), 1)
 
         if len(idxVis) > 0:
             for j, k in enumerate(idxVis):
-                self.iFrame = cv2.putText(self.iFrame, '{}'.format(
+                cv2.putText(frame, '{}'.format(
                     IDs[j]), (boxes[j][0], boxes[j][1]), cv2.FONT_HERSHEY_PLAIN, 1., auColors[k].tolist(), 1)
                 
-        cv2.putText(self.iFrame, str(fps), (7, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (100, 255, 0), 3, cv2.LINE_AA)
-        self.frame_img = cv2.imencode(".jpg", self.iFrame)[1]
+        cv2.putText(frame, str(fps), (7, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (100, 255, 0), 3, cv2.LINE_AA)
+        # self.frame_img = cv2.imencode(".jpg", self.iFrame)[1]
         self.previous_render = time_now
 
-    def Process(self, events):
+
+    def Process(self, events, frame, dump_au):
         # ts appears on index 3 instead of 2
-        #ts = events[-1, 2]
         ts = events[-1, 2]
         self.AUs.stream_in_events(events)
-        self.AUs.dump_all_au()
-        self.update_box(ts)
+
+        if dump_au:
+            self.AUs.dump_all_au()
+            self.update_box(ts)
         
-        self.Split()
-        self.Merge()
-        self.Kill(ts)
-        self.UpdateID(ts)
-        self.Animation(events, ts)
+            self.Split()
+            self.Merge()
+            self.Kill(ts)
+            self.UpdateID(ts)
+        self.Annotate(frame, ts)
         self.frame_ready.set()
 
 #     def StreamEvents(self, events):
