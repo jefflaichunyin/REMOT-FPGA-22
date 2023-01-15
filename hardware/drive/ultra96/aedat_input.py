@@ -61,6 +61,7 @@ dump_interval = 5
 cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
 # cv2.resizeWindow('frame', 346*2, 260*2)
 while True:
+# for _ in range(10):
     # events are formated in the following way: [x, y, self.t, p]
     frame = np.full((260,346,3), 0, 'uint8')
     events = aedat.read(frame)

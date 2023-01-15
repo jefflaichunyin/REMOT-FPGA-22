@@ -123,6 +123,7 @@ class Controller():
         live_au_list = np.where(self.AUs.status_reg == 0)[0]
         for i in live_au_list:
             auEvents = self.AUs.au_event_fifo[i]
+            
 #             idxFade = np.argwhere(auEvents[:, 2] < ts - self.tFrame).flatten()
 
             idxFade = np.argwhere(auEvents[:, 2] < auEvents[-1, 2] - self.tFrame).flatten()
@@ -228,9 +229,9 @@ class Controller():
             flag3 = (self.AUs.auBox[idx][1] + self.AUs.auBox[idx][3]) / 2 < self.bdkill
             if flag1 or flag2 or flag3:
                 idxDel.append(idx)
-                #print(idx, "is killed due to ", "flag1 ", flag1, "flag2 ", flag2, "flag3 ", flag3)
-                #print("ts: ", ts)
-                #print("np.max(self.AUs.au_event_fifo[idx][:, 2]): ", np.max(self.AUs.au_event_fifo[idx][:, 2]))
+#                 print(idx, "is killed due to ", "flag1 ", flag1, "flag2 ", flag2, "flag3 ", flag3)
+#                 print("ts: ", ts)
+#                 print("np.max(self.AUs.au_event_fifo[idx][:, 2]): ", np.max(self.AUs.au_event_fifo[idx][:, 2]))
                                  
                               
         if len(idxDel) > 0:
@@ -361,7 +362,6 @@ class Controller():
         # ts appears on index 3 instead of 2
         ts = events[-1, 2]
         self.AUs.stream_in_events(events)
-
         if dump_au:
             time_now = time.time()
             self.fps = int(1/(time_now - self.previous_dump))
@@ -372,6 +372,7 @@ class Controller():
             self.Kill(ts)
             self.UpdateID(ts)
             self.previous_dump = time_now
+            
         self.Annotate(frame, ts)
         self.frame_ready.set()
 
