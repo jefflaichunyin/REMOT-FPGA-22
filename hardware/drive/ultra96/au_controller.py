@@ -100,7 +100,8 @@ class Controller():
         self.frame_img = None
         self.frame_ready = threading.Event()
         self.ts = 0
-        self.previous_render = 0
+        self.previous_dump = 0
+        self.fps = 0
             
     def Init(self, file):
         if "bound" in self.input:
@@ -122,7 +123,7 @@ class Controller():
         live_au_list = np.where(self.AUs.status_reg == 0)[0]
         for i in live_au_list:
             auEvents = self.AUs.au_event_fifo[i]
-            idxFade = np.argwhere(auEvents[:, 2] < ts - self.tFrame).flatten()
+#             idxFade = np.argwhere(auEvents[:, 2] < ts - self.tFrame).flatten()
 
             idxFade = np.argwhere(auEvents[:, 2] < auEvents[-1, 2] - self.tFrame).flatten()
             if idxFade.size != 0:
@@ -253,10 +254,7 @@ class Controller():
                 self.globalID += 1
                 self.AUs.auNumber[idx][0] = self.globalID
 
-    def Annotate(self, frame, ts):
-        time_now = time.time()
-        fps = int(1/(time_now - self.previous_render))
-        
+    def Annotate(self, frame, ts):      
         idxVis = []
         boxes = []
         IDs = []
@@ -302,10 +300,62 @@ class Controller():
                 cv2.putText(frame, '{}'.format(
                     IDs[j]), (boxes[j][0], boxes[j][1]), cv2.FONT_HERSHEY_PLAIN, 1., auColors[k].tolist(), 1)
                 
-        cv2.putText(frame, str(fps), (7, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (100, 255, 0), 3, cv2.LINE_AA)
-        # self.frame_img = cv2.imencode(".jpg", self.iFrame)[1]
-        self.previous_render = time_now
+        cv2.putText(frame, str(self.fps), (7, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (100, 255, 0), 3, cv2.LINE_AA)
+        
+    def Animation(self, events, ts):
+        self.iFrame[:] = 0
+        y = events[:, 1]
+        x = events[:, 0]
+        self.iFrame[y, x] = [255, 255, 255]
+        
+        idxVis = []
+        boxes = []
+        IDs = []
 
+        live_au_list = np.where(self.AUs.status_reg == 0)[0]
+        cmap_idx = np.array([self.AUs.auNumber[i][0] % 7 for i in live_au_list], 'int32')
+        auColors = np.zeros([self.auNum, 3])
+        auColors[live_au_list] = self.cmap[cmap_idx]
+
+        for j in live_au_list:
+            if self.AUs.auNumber[j][0] > 0:
+                idxEvt = self.AUs.au_event_fifo[j][:, 2] >= ts - self.tFrame
+                if any(idxEvt):
+                    idxVis.append(j)
+                    one_frame_events = self.AUs.au_event_fifo[j][idxEvt, :]
+                    boxes.append(
+                        bbox(one_frame_events[:, 0], one_frame_events[:, 1]))
+                    IDs.append(self.AUs.auNumber[j][0])
+
+        self.tkBoxes.append(boxes)
+        self.tkIDs.append(IDs)
+        #print("tkid", IDs)
+
+        if len(idxVis) > 0:
+            for j, k in enumerate(idxVis):
+                self.iFrame = cv2.rectangle(
+                    self.iFrame, (boxes[j][0], boxes[j][1]), (boxes[j][2], boxes[j][3]), auColors[k].tolist(), 1)
+
+        if len(idxVis) > 0:
+            for j, k in enumerate(idxVis):
+                self.iFrame = cv2.putText(self.iFrame, '{}'.format(
+                    IDs[j]), (boxes[j][0], boxes[j][1]), cv2.FONT_HERSHEY_PLAIN, 1., auColors[k].tolist(), 1)
+    def Process_stream_in_events(self, events):
+        self.AUs.stream_in_events(events)
+        
+    def Process_legacy(self, events):
+        ts = events[-1, 2].astype(np.uint32)
+        self.AUs.stream_in_events(events)
+        self.AUs.dump_all_au()
+        self.update_box(ts)
+        
+        self.Split()
+        self.Merge()
+        self.Kill(ts)
+        self.UpdateID(ts)
+
+        self.Animation(events, ts)
+        self.frame_ready.set()
 
     def Process(self, events, frame, dump_au):
         # ts appears on index 3 instead of 2
@@ -313,35 +363,25 @@ class Controller():
         self.AUs.stream_in_events(events)
 
         if dump_au:
+            time_now = time.time()
+            self.fps = int(1/(time_now - self.previous_dump))
             self.AUs.dump_all_au()
             self.update_box(ts)
-        
             self.Split()
             self.Merge()
             self.Kill(ts)
             self.UpdateID(ts)
+            self.previous_dump = time_now
         self.Annotate(frame, ts)
         self.frame_ready.set()
-
-#     def StreamEvents(self, events):
-#         ts = events[-1, 2]
-#         self.ts = ts
-#         self.AUs.stream_in_events(events)
-#         self.AUs.dump_all_au()
-#         self.update_box(ts)
-#         self.Animation(events, ts)
-#         self.UpdateID(ts)
-#         self.frame_ready.set()
-        
-#     def Process(self):
-# #         self.AUs.dump_all_au()
-#         self.Split()
-#         self.Merge()
-#         self.Kill(self.ts)
 
     def get_frame(self):
         self.frame_ready.wait()
         return self.frame_img
+    
+    def get_frame_legacy(self):
+        self.frame_ready.wait()
+        return self.iFrame
 
     def Process_all(self):
         number_of_frame = self.total_time // (1 * self.tFrame)
