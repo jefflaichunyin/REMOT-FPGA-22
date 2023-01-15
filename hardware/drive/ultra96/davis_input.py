@@ -53,13 +53,13 @@ print("tDel ", controller.tDel)
 controller.AUs.test_random(32768, 100)
 
 i = 0
-dump_interval = 5
+dump_interval = 7
 
 cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
 # cv2.resizeWindow('frame', 346*2, 260*2)
 while True:
     # events are formated in the following way: [x, y, self.t, p]
-    frame = np.full((260,346,3), 127, 'uint8')
+    frame = np.full((260,346,3), 0, 'uint8')
     events = davis.read(frame)
     #cProfile.run('events = davis.read()', 'read.prof')
     if len(events) > 0:
