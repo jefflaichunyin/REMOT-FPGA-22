@@ -2,9 +2,6 @@ from pynq import Overlay
 from pynq import allocate
 import numpy as np
 import time
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-import math
 
 class Au_fifo:
     def __init__(self, Height, Width, bitfile, au_number=48, fifo_depth=2048):

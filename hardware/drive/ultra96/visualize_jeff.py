@@ -1,10 +1,6 @@
 import yaml
 from au_controller import Controller
 from au_functions import ARGS
-import threading
-import argparse
-import datetime
-import time
 import cv2
 import numpy as np
 from pycaer import davis
