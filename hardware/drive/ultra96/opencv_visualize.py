@@ -44,12 +44,24 @@ def getEvents(recording, frame = None):
     except:
         pass
     read_cnt += 1
-    if frame is not None and events is not None:
+    if events is not None:
+        event_array = np.ndarray((len(events), 4), dtype=np.uint64)
+        event_idx = 0
         for event in events:
-            frame[event.y(), event.x()] = (0,0,255) if event.polarity() else (0,255,0)
-    
-    # TODO: return np mat [[x,y,t,p]]
-    return events
+            if frame is not None:
+                frame[event.y(), event.x()] = (0,0,255) if event.polarity() else (0,255,0)
+            event_array[event_idx] = np.array([event.y(), event.x(), event.timestamp() & 0xFFFFFFFF, event.polarity()])
+            event_idx += 1
+    else:
+        event_array = None
+    return event_array
+
+def event_to_frame(events):
+    frame = np.full((260,346,3), 0, 'uint8')
+    y = events[:, 1]
+    x = events[:, 0]
+    frame[x, y] = [255, 255, 255]
+    return frame
 
 def getImage(recording):
     global read_cnt
@@ -127,7 +139,11 @@ while reader.isRunning():
     if track_by == "event":
         frame = np.full((260,346,3), 0, 'uint8')
         events = getEvents(reader, frame)
-        
+        live_au, au_id, au_fifo = remot.Process(events, True)
+        print(live_au, au_id)
+        if live_au.size:
+            frame = event_to_frame(au_fifo[live_au[0]])
+
         read_cnt += 1
         dst = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
         dst = cv.GaussianBlur(dst,(5,5),0)

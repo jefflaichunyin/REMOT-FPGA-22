@@ -125,11 +125,11 @@ class Au_fifo:
         #print("processing {} event using:{}".format(N, end-begin))
 
     def pack_event(self, events):
-        event = events.astype(np.uint64)
-        x = event[:, 0]
-        y = event[:, 1]
-        t = event[:, 2]
-        p = event[:, 3]
+        # event = events.astype(np.uint64)
+        x = events[:, 0]
+        y = events[:, 1]
+        t = events[:, 2]
+        p = events[:, 3]
         pack = x + (y << self.xbits) + (t << (self.xbits + self.ybits)) + (p << (self.xbits + self.ybits + self.tbits))        
         return pack  
 

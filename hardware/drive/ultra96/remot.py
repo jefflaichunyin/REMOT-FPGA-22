@@ -14,7 +14,7 @@ class REMOT():
     def __init__(self, args):
         self.input = args.input
         self.bitfile = args.bitfile
-        self.Init(self.input)
+        # self.Init(self.input)
         self.tkBoxes = []
         self.tkIDs = []
 
@@ -23,6 +23,14 @@ class REMOT():
         self.dAdd = args.dAdd
         self.folder = args.outfolder
         self.name = args.name
+
+        self.tFrame = args.tFrame
+        self.lx = args.lx
+        self.ly = args.ly
+
+        self.bdspawn1 = args.bdspawn1
+        self.bdspawn2 = args.bdspawn2
+        self.bdkill = args.bdkill
 
         self.tDel = args.tDel * self.tFrame
         self.areaDel = args.areaDel
@@ -42,6 +50,8 @@ class REMOT():
         self.minptsMer = 1
         self.epsMer = 1
 
+        self.globalID = -1
+
         print("Bitfile = ", args.bitfile)
         self.AUs = Au_fifo(Height=self.ly, Width=self.lx, bitfile=args.bitfile, au_number=args.auNum, fifo_depth=args.auFifo)
 
@@ -51,19 +61,26 @@ class REMOT():
             auEvents = self.AUs.au_event_fifo[i]
             idxFade = np.argwhere(auEvents[:, 2] < ts - self.tFrame).flatten()
 
-            idxFade = np.argwhere(auEvents[:, 2] < auEvents[-1, 2] - self.tFrame).flatten()
+            # idxFade = np.argwhere(auEvents[:, 2] < auEvents[-1, 2] - self.tFrame).flatten()
             if idxFade.size != 0:
                 auEvents = np.delete(auEvents, idxFade, axis=0)
             self.AUs.au_event_fifo[i] = auEvents
-            self.AUs.auBox[i] = bbox(auEvents[:, 0], auEvents[:, 1])
+            if auEvents.size > 0:
+                self.AUs.auBox[i] = bbox(auEvents[:, 0], auEvents[:, 1])
+            else:
+                self.AUs.status_reg[i] = 1
 
     def Split(self):
         idxDel = []
         if (np.sum(self.AUs.status_reg) == 0): 
+            print("All AU busy, can't split")
             return 
         
         for j in np.where(self.AUs.status_reg != 1)[0]:
             auEvents = self.AUs.au_event_fifo[j] 
+            if auEvents.size == 0:
+                continue
+            print("Spliting AU", j)
             if self.split == 'DBSCAN':
                 idxGroup = DBSCAN(eps=self.epsDiv, min_samples=self.minptsDiv).fit_predict(
                     auEvents[:, :2])
@@ -78,6 +95,8 @@ class REMOT():
                 if max(directed_hausdorff(auEvents[idxGroup == 0, :2], auEvents[idxGroup == 1, :2])[0],
                        directed_hausdorff(auEvents[idxGroup == 1, :2], auEvents[idxGroup == 0, :2])[0]) < self.dsMer:
                     continue
+
+            print("idxGroup", idxGroup)
 
             if max(idxGroup) <= 0: 
                 continue
@@ -134,7 +153,8 @@ class REMOT():
             idxNum = idxAU[np.argmin([self.AUs.auNumber[idx][0] for idx in idxAU])]
             
             self.AUs.write_au(event=events, number=write_au_idx)
-            self.AUs.auBox[write_au_idx] = bbox(events[:, 0], events[:, 1])
+            if events.size > 0:
+                self.AUs.auBox[write_au_idx] = bbox(events[:, 0], events[:, 1])
             self.AUs.auNumber[write_au_idx] = self.AUs.auNumber[idxNum]
             
             for idx in idxDel:
@@ -145,21 +165,23 @@ class REMOT():
     def Kill(self, ts):
         live_au_list = np.where(self.AUs.status_reg==0)[0]
         idxDel = []
-        
         for idx in live_au_list:
+            if self.AUs.au_event_fifo[idx].size == 0:
+                idxDel.append(idx)
+                continue
             flag1 = ts - np.max(self.AUs.au_event_fifo[idx][:, 2]) > self.tDel
             flag2 = bbArea(self.AUs.auBox[idx]) < self.areaDel
             flag3 = (self.AUs.auBox[idx][1] + self.AUs.auBox[idx][3]) / 2 < self.bdkill
             if flag1 or flag2 or flag3:
                 idxDel.append(idx)
-                #print(idx, "is killed due to ", "flag1 ", flag1, "flag2 ", flag2, "flag3 ", flag3)
-                #print("ts: ", ts)
-                #print("np.max(self.AUs.au_event_fifo[idx][:, 2]): ", np.max(self.AUs.au_event_fifo[idx][:, 2]))
+                print(idx, "is killed due to ", "flag1 ", flag1, "flag2 ", flag2, "flag3 ", flag3)
+                # print("ts: ", ts)
+                # print("np.max(self.AUs.au_event_fifo[idx][:, 2]): ", np.max(self.AUs.au_event_fifo[idx][:, 2]))
                                  
                               
         if len(idxDel) > 0:
-            #print(ts)
-            #print("killing", idxDel)
+            # print(ts)
+            # print("killing", idxDel)
             for idx in idxDel:
                 self.AUs.kill_au(idx)  
 
@@ -179,16 +201,18 @@ class REMOT():
                 self.AUs.auNumber[idx][0] = self.globalID
 
     def Process(self, events, dump_au):
-        ts = events[-1, 2]
+        ts = events[-1, 2].astype(np.uint32)
         self.AUs.stream_in_events(events)
 
         if dump_au:
             self.AUs.dump_all_au()
             self.update_box(ts)
-        
             self.Split()
             self.Merge()
             self.Kill(ts)
             self.UpdateID(ts)
-        # empty AU, AU ID, AU fifo
-        return (self.AUs.status_reg, self.AUs.auNumber, self.AUs.au_event_fifo)
+        # live AU, (AU ID, timestamp), AU fifo
+
+        live_au_list = np.where(self.AUs.status_reg==0)[0]
+
+        return (live_au_list, self.AUs.auNumber, self.AUs.au_event_fifo)

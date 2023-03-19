@@ -1,14 +1,20 @@
 auFifo   : 128
 auNum    : 12
 dAdd     : 2
+lx       : 346
+ly       : 260
 input    : 'dataset/shapes.mat'
 name     : 'shapes_fifo_'
+tFrame   : 10000
 tDel     : 2
 areaDel  : 64
 tLive    : 3
 areaLive : 256
 numLive  : 40
-epsDiv   : 22
+bdkill   : 20
+bdspawn1 : -1
+bdspawn2 : -1
+epsDiv   : 5
 iomMer   : 0.1
 dsMer    : 30
 outfolder: 'result'
