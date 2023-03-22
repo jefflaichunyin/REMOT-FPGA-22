@@ -1,10 +1,10 @@
 #! /usr/bin/python3
 import yaml
 from au_functions import ARGS
-
 from remot import REMOT
-import cv2 as cv
+from trajectory import Trajectory
 
+import cv2 as cv
 import numpy as np
 import dv_processing as dv
 from matplotlib import pyplot as plt
@@ -91,42 +91,42 @@ def getImage(recording):
     else:
         return np.full((260,346,3), 255, 'uint8')
 
-def on_mouse(event, x, y, flags, userdata):
-    global roi_select_state, roi, last_frame, roi_hist
-    # Left click
-    if event == cv.EVENT_LBUTTONUP:
-        # Select first point
-        if roi_select_state == 0:
-            print("select one point")
-            roi[0] = (x,y)
-            roi_select_state += 1
-        # Select second point
-        elif roi_select_state == 1:
-            roi[1] = (x,y)
-            roi_select_state += 1
-            roi_p1, roi_p2 = roi
-            min_y, max_y = min(roi_p1[1], roi_p2[1]), max(roi_p1[1], roi_p2[1])
-            min_x, max_x = min(roi_p1[0], roi_p2[0]), max(roi_p1[0], roi_p2[0])
+# def on_mouse(event, x, y, flags, userdata):
+#     global roi_select_state, roi, last_frame, roi_hist
+#     # Left click
+#     if event == cv.EVENT_LBUTTONUP:
+#         # Select first point
+#         if roi_select_state == 0:
+#             print("select one point")
+#             roi[0] = (x,y)
+#             roi_select_state += 1
+#         # Select second point
+#         elif roi_select_state == 1:
+#             roi[1] = (x,y)
+#             roi_select_state += 1
+#             roi_p1, roi_p2 = roi
+#             min_y, max_y = min(roi_p1[1], roi_p2[1]), max(roi_p1[1], roi_p2[1])
+#             min_x, max_x = min(roi_p1[0], roi_p2[0]), max(roi_p1[0], roi_p2[0])
 
-            if (max_y - min_y) == 0 or (max_x - min_x) == 0:
-                print("too close")
-                roi_select_state = 1
-            else:
-                print("roi selected")
-                roi_frame = last_frame[min_y: max_y, min_x : max_x]
-                hsv_roi =  cv.cvtColor(roi_frame, cv.COLOR_BGR2HSV)
-                mask = cv.inRange(hsv_roi, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
-                roi_hist = cv.calcHist([hsv_roi],[0],mask,[180],[0,180])
-                cv.normalize(roi_hist,roi_hist,0,255,cv.NORM_MINMAX)
-                cv.namedWindow('roi_frame', cv.WINDOW_NORMAL)
-                cv.resizeWindow('roi_frame', abs(roi_p2[0] - roi_p1[0]), abs(roi_p1[1] - roi_p2[1]))
-                cv.imshow('roi_frame', roi_frame)
+#             if (max_y - min_y) == 0 or (max_x - min_x) == 0:
+#                 print("too close")
+#                 roi_select_state = 1
+#             else:
+#                 print("roi selected")
+#                 roi_frame = last_frame[min_y: max_y, min_x : max_x]
+#                 hsv_roi =  cv.cvtColor(roi_frame, cv.COLOR_BGR2HSV)
+#                 mask = cv.inRange(hsv_roi, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
+#                 roi_hist = cv.calcHist([hsv_roi],[0],mask,[180],[0,180])
+#                 cv.normalize(roi_hist,roi_hist,0,255,cv.NORM_MINMAX)
+#                 cv.namedWindow('roi_frame', cv.WINDOW_NORMAL)
+#                 cv.resizeWindow('roi_frame', abs(roi_p2[0] - roi_p1[0]), abs(roi_p1[1] - roi_p2[1]))
+#                 cv.imshow('roi_frame', roi_frame)
 
-    # Right click (erase current ROI)
-    if event == cv.EVENT_RBUTTONUP:
-        print("roi selection cleared")
-        roi = [None, None]
-        roi_select_state = 0
+#     # Right click (erase current ROI)
+#     if event == cv.EVENT_RBUTTONUP:
+#         print("roi selection cleared")
+#         roi = [None, None]
+#         roi_select_state = 0
 
 
 frame_delay = 200
@@ -134,53 +134,46 @@ frame_delay_default = 40
 reader = dv.io.MonoCameraRecording(sys.argv[1])
 cv.namedWindow('frame', cv.WINDOW_NORMAL)
 cv.resizeWindow('frame', 346*3, 260*3)
-cv.setMouseCallback('frame', on_mouse)
+# cv.setMouseCallback('frame', on_mouse)
 frame = np.full((260,346,3), 255, 'uint8')
 
-for _ in range(19):
-    # events = getEvents(reader, frame)
-    frame = getImage(reader)
+# for _ in range(19):
+#     # events = getEvents(reader, frame)
+#     frame = getImage(reader)
 
-# setup initial window location
-# x, y, w, h = 173, 130, 168, 125
-track_window = (173, 130, 346, 240)
-# term_crit = ( cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 8, 5)
-term_crit = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 1)
-previous_center = np.array([0,0])
-track = np.full((260,346,3), 0, 'uint8')
-center_path = np.full((260,346,3), 0, 'uint8')
+trajectory = []
+debug_frame = np.full((260,346,3), 0, 'uint8')
 while reader.isRunning():
     # events are formated in the following way: [x, y, self.t, p]
     annotated = np.full((260,346,3), 0, 'uint8')
     original_frame = None
     if track_by == "event":
-        frame = np.full((260,346,3), 0, 'uint8')
-        events = getEvents(reader, frame)
-        original_frame = frame.copy()
+        original_frame = np.full((260,346,3), 0, 'uint8')
+        annotated = np.full((260,346,3), 0, 'uint8')
+        events = getEvents(reader, original_frame)
+
+        print("\nREMOT Process:")
         live_au, tracking_state, au_fifo = remot.Process(events, True)
-        print("result:")
+        
+        if len(live_au):
+            print("result:")
+        else:
+            print("Not tracking")
+
         for au_id in live_au:
             tracking_id, tracking_ts = tracking_state[au_id]
+            events = au_fifo[au_id]
             print(f'AU {au_id} tracking object {tracking_id} ts: {tracking_ts}')
-            event_to_frame(frame, au_fifo[au_id], cmap[tracking_id])
-        dst = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-        dst = cv.GaussianBlur(dst,(5,5),0)
-        ret, dst = cv.threshold(dst,24,255,cv.THRESH_TOZERO)
-        ret, track_window = cv.CamShift(dst, track_window, term_crit)
-        pts = cv.boxPoints(ret)
-        pts = np.int0(pts)
-        center = np.int0(ret[0])
-        # print("center", center)
-        annotated = cv.polylines(frame,[pts],True, (0,255,255), 2)
-        cv.putText(annotated, f"x: {center[0]} y:{center[1]} r:{(ret[2]-90):3.2f}", (0, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+            event_to_frame(annotated, au_fifo[au_id], cmap[tracking_id])
 
-        if not np.all(previous_center == 0) and not np.all(center == 0):
-            cv.line(track, previous_center, center, (0,128,0), 1)
-            cv.circle(center_path, center, 2, (128, 128, 255), 1)
+            if tracking_id > len(trajectory) - 1:
+                print("Add new tracker")
+                trajectory.append(Trajectory(tracking_id))
+            trajectory[tracking_id].update(events)
+        
+        for t in trajectory:
+            t.draw(annotated)
 
-        previous_center = center
-        annotated = cv.add(annotated, track)
-        annotated = cv.add(annotated, center_path)
     elif track_by == "image":
         frame = getImage(reader)
         if last_frame is None:

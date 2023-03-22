@@ -101,10 +101,11 @@ class REMOT():
 
             print(f"Identified {np.unique(idxGroup).size} clusters in AU {j}")
 
+            # find cluster with most events
             idxTk = np.argmax([sum(idxGroup == idx)
                               for idx in np.unique(idxGroup)])
 
-            for k in range(max(idxGroup) + 1):
+            for k in range(max(idxGroup) + 1): # go through each cluster
                 next_empty = np.where(self.AUs.status_reg == 1)[0]
                 if next_empty.shape[0] ==0:
                     return
@@ -208,6 +209,8 @@ class REMOT():
             self.Merge()
             self.Kill(ts)
             self.Split()
+            self.Merge()
+            self.Kill(ts)
             self.UpdateID(ts)
         # live AU, (AU ID, timestamp), AU fifo
 
