@@ -1,14 +1,31 @@
 #! /usr/bin/python3
 import yaml
 from au_functions import ARGS
+
 from remot import REMOT
 import cv2 as cv
+
 import numpy as np
 import dv_processing as dv
 from matplotlib import pyplot as plt
 import sys
 
 config_dir = "./config/shape_6dof_fifo.yml"
+
+cmap = [
+    [0,0,255],      # red
+    [0,128,255],    # tangerin
+    [0,191,255],    # orange
+    [0,255,255],    # yellow
+    [0,255,191],    # light green
+    [0,255,0],      # green
+    [191,255,0],    # lake green
+    [255,255,0],    # sky blue
+    [255,191,0],    # navy blue
+    [255,0,0],      # deep blue
+    [255,0,128],    # purple
+    [255,0,255]     # magenta
+]
 
 with open(config_dir, "r") as file:
     config = yaml.safe_load(file)
@@ -49,18 +66,17 @@ def getEvents(recording, frame = None):
         event_idx = 0
         for event in events:
             if frame is not None:
-                frame[event.y(), event.x()] = (0,0,255) if event.polarity() else (0,255,0)
+                frame[event.y(), event.x()] = (0,0,128) if event.polarity() else (0,128,0)
             event_array[event_idx] = np.array([event.y(), event.x(), event.timestamp() & 0xFFFFFFFF, event.polarity()])
             event_idx += 1
     else:
         event_array = None
     return event_array
 
-def event_to_frame(events):
-    frame = np.full((260,346,3), 0, 'uint8')
+def event_to_frame(frame, events, color):
     y = events[:, 1]
     x = events[:, 0]
-    frame[x, y] = [255, 255, 255]
+    frame[x, y] = color
     return frame
 
 def getImage(recording):
@@ -136,15 +152,17 @@ center_path = np.full((260,346,3), 0, 'uint8')
 while reader.isRunning():
     # events are formated in the following way: [x, y, self.t, p]
     annotated = np.full((260,346,3), 0, 'uint8')
+    original_frame = None
     if track_by == "event":
         frame = np.full((260,346,3), 0, 'uint8')
         events = getEvents(reader, frame)
-        live_au, au_id, au_fifo = remot.Process(events, True)
-        print(live_au, au_id)
-        if live_au.size:
-            frame = event_to_frame(au_fifo[live_au[0]])
-
-        read_cnt += 1
+        original_frame = frame.copy()
+        live_au, tracking_state, au_fifo = remot.Process(events, True)
+        print("result:")
+        for au_id in live_au:
+            tracking_id, tracking_ts = tracking_state[au_id]
+            print(f'AU {au_id} tracking object {tracking_id} ts: {tracking_ts}')
+            event_to_frame(frame, au_fifo[au_id], cmap[tracking_id])
         dst = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
         dst = cv.GaussianBlur(dst,(5,5),0)
         ret, dst = cv.threshold(dst,24,255,cv.THRESH_TOZERO)
@@ -180,8 +198,9 @@ while reader.isRunning():
             last_frame = blended.copy()
             annotated = blended
 
-    cv.putText(annotated, f"pkt#: {read_cnt}", (0, 32), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
-    cv.imshow('frame', annotated)
+    combined = np.concatenate((original_frame, annotated), axis = 0)
+    cv.putText(combined, f"pkt#: {read_cnt}", (0, 32), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+    cv.imshow('frame', combined)
     # cv.imshow('frame', events)
     key = cv.waitKey(frame_delay) & 0xFF
     if key == ord('q'):

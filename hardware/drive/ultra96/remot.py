@@ -3,7 +3,6 @@ from au_hardware_fifo_only import Au_fifo
 import numpy as np
 
 from sklearn.cluster import DBSCAN, AgglomerativeClustering
-from scipy import io
 from scipy.spatial.distance import squareform, directed_hausdorff
 from itertools import combinations
 
@@ -80,7 +79,6 @@ class REMOT():
             auEvents = self.AUs.au_event_fifo[j] 
             if auEvents.size == 0:
                 continue
-            print("Spliting AU", j)
             if self.split == 'DBSCAN':
                 idxGroup = DBSCAN(eps=self.epsDiv, min_samples=self.minptsDiv).fit_predict(
                     auEvents[:, :2])
@@ -96,12 +94,12 @@ class REMOT():
                        directed_hausdorff(auEvents[idxGroup == 1, :2], auEvents[idxGroup == 0, :2])[0]) < self.dsMer:
                     continue
 
-            print("idxGroup", idxGroup)
-
             if max(idxGroup) <= 0: 
                 continue
             else:
                 idxDel.append(j)
+
+            print(f"Identified {np.unique(idxGroup).size} clusters in AU {j}")
 
             idxTk = np.argmax([sum(idxGroup == idx)
                               for idx in np.unique(idxGroup)])
@@ -133,7 +131,7 @@ class REMOT():
             return
         
         idxGroup = clusterAu(np.array(self.AUs.auBox)[live_au_list], self.iomMer)
-
+        # print("Merge idxGroup", idxGroup)
         for j in range(max(idxGroup) + 1):
             idxAU = np.argwhere(idxGroup == j).flatten()
             idxAU = live_au_list[idxAU]
@@ -142,7 +140,7 @@ class REMOT():
                 continue
             
             write_au_idx = np.min(idxAU)
-            #print("merging{} to {}".format(idxAU, write_au_idx) )
+            print("merging{} to {}".format(idxAU, write_au_idx) )
             events = np.concatenate(
                 [self.AUs.au_event_fifo[idx] for idx in idxAU], axis=0) 
             events = np.unique(events, axis=0)
@@ -174,7 +172,7 @@ class REMOT():
             flag3 = (self.AUs.auBox[idx][1] + self.AUs.auBox[idx][3]) / 2 < self.bdkill
             if flag1 or flag2 or flag3:
                 idxDel.append(idx)
-                print(idx, "is killed due to ", "flag1 ", flag1, "flag2 ", flag2, "flag3 ", flag3)
+                print(idx, "is killed due to ", "timeout: ", flag1, "size: ", flag2, "bdkill: ", flag3)
                 # print("ts: ", ts)
                 # print("np.max(self.AUs.au_event_fifo[idx][:, 2]): ", np.max(self.AUs.au_event_fifo[idx][:, 2]))
                                  
@@ -207,9 +205,9 @@ class REMOT():
         if dump_au:
             self.AUs.dump_all_au()
             self.update_box(ts)
-            self.Split()
             self.Merge()
             self.Kill(ts)
+            self.Split()
             self.UpdateID(ts)
         # live AU, (AU ID, timestamp), AU fifo
 

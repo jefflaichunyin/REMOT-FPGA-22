@@ -49,7 +49,7 @@ def clusterAu(boxes, iom):
         for j in range(i + 1, sz):
             if idxGroup[j] >= 0:
                 continue
-            
+            # print(f"Overlap ratio between {i} {j} is {bboxOverlapRatio(boxes[i], boxes[j])}")
             if bboxOverlapRatio(boxes[i], boxes[j]) >= iom:
                 idxGroup[j] = idxGroup[i]
     
