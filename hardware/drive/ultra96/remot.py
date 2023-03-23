@@ -186,7 +186,7 @@ class REMOT():
 
     def UpdateID(self, ts):
         if 'fifo' in self.bitfile:
-            self.AUs.write_all_au()
+            self.AUs.sync_all_au()
             
         live_au_list = np.where(self.AUs.status_reg==0)[0]
         for idx in live_au_list:

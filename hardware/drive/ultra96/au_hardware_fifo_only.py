@@ -45,7 +45,7 @@ class Au_fifo:
         self.pbits = 1
         self.run_empty()
 
-    def write_status(self):
+    def pack_status(self):
         # print(self.status_reg)
         pack = 0
         for i in range(self.au_number):
@@ -76,12 +76,10 @@ class Au_fifo:
     def sync_au(self, number):
         number = int(number)
         event = self.au_event_fifo[number]
-        self.status_reg[number] = 0
-        self.write_status()
-    
-        self.au.write(self.N_event_address, 0x00)
-        self.au.write(self.init_n_address, number)
-        self.au.write(self.retrive_n_address, 100)
+
+        self.au.write(self.N_event_address, 0x00)   # do not broadcast event
+        self.au.write(self.init_n_address, number)  # set AU to init
+        self.au.write(self.retrive_n_address, 100)  # do not retrieve AU fifo
 
         packed_event = self.pack_event(event)
         self.in_fifo[:] = np.zeros(self.in_fifo.shape)
@@ -96,12 +94,18 @@ class Au_fifo:
         event = event[-self.fifo_depth:]
         number = int(number)
         self.status_reg[number] = 0
-        self.write_status()
         self.au_event_fifo[number] = event
 
-    def write_all_au(self):
-        live_au_list = np.where(self.status_reg == 0)[0]
-        for i in live_au_list:
+    def kill_au(self, number):
+        number = int(number)
+        self.auBox[number] = [0,0,0,0] 
+        self.auNumber[number] = [0, 0] 
+        self.status_reg[number] = 1
+        self.au_event_fifo[number][:] = 0 
+
+    def sync_all_au(self):
+        self.pack_status()
+        for i in range(self.au_number):
             self.sync_au(i)
 
     def stream_in_events(self, events): #no retrieve
@@ -147,7 +151,6 @@ class Au_fifo:
         out_events = self.unpack_event(out_events)
         out_events = out_events[np.argsort(out_events[:, 2])]
         return out_events
-
 
     def dump_all_au(self):
         self.read_status()
@@ -215,29 +218,6 @@ class Au_fifo:
             self.read_status()
             print(self.status_reg)
         return 1 / (self.total_time / N / times)
-
-
-    def kill_au(self, number):
-        number = int(number)
-        self.auBox[number] = [0,0,0,0] 
-        self.auNumber[number] = [0, 0] 
-        
-        self.au.write(self.retrive_n_address, 100)
-
-        self.status_reg[number] = 1
-        self.write_status()
-        self.au_event_fifo[number][:] = 0 
-
-        self.au.write(self.N_event_address, 0x00)
-        self.au.write(self.init_n_address, number)
-
-        self.in_fifo[:] = 0
-        self.au.write(self.init_fifo_depth_address, 0)
-        
-        self.au.write(0x00, 0x1)
-        while not (self.au.read(0x0) & 0x2):
-            pass
-        self.read_status()  
     
     def rebuild_all_amap(self):
         for i in range(self.au_number):
