@@ -9,6 +9,7 @@ import numpy as np
 import dv_processing as dv
 from matplotlib import pyplot as plt
 import sys
+import time
 
 config_dir = "./config/shape_6dof_fifo.yml"
 
@@ -34,7 +35,8 @@ config = ARGS(config)
 remot = REMOT(config)
 
 track_by = "event"
-read_cnt = 0
+event_pkt_cnt = 0
+image_frame_cnt = 0
 last_frame = None
 roi = [None, None]
 roi_select_state = 0
@@ -55,18 +57,18 @@ def increase_brightness(img, value=30):
     return img
 
 def getEvents(recording, frame = None):
-    global read_cnt
+    global event_pkt_cnt
     try:
         events = recording.getNextEventBatch()
     except:
         pass
-    read_cnt += 1
+    event_pkt_cnt += 1
     if events is not None:
         event_array = np.ndarray((len(events), 4), dtype=np.uint64)
         event_idx = 0
         for event in events:
             if frame is not None:
-                frame[event.y(), event.x()] = (0,0,128) if event.polarity() else (0,128,0)
+                frame[event.y(), event.x()] = (0,0,230) if event.polarity() else (0,230,0)
             event_array[event_idx] = np.array([event.y(), event.x(), event.timestamp() & 0xFFFFFFFF, event.polarity()])
             event_idx += 1
     else:
@@ -80,14 +82,14 @@ def event_to_frame(frame, events, color):
     return frame
 
 def getImage(recording):
-    global read_cnt
+    global image_frame_cnt
     try:
         frame = recording.getNextFrame()
     except:
         pass
     if frame is not None:
-        read_cnt += 1
-        return recording.getNextFrame().image
+        image_frame_cnt += 1
+        return (frame.image, frame.timestamp & 0xFFFFFFFF)
     else:
         return np.full((260,346,3), 255, 'uint8')
 
@@ -137,67 +139,85 @@ cv.resizeWindow('frame', 346*3, 260*3)
 # cv.setMouseCallback('frame', on_mouse)
 frame = np.full((260,346,3), 255, 'uint8')
 
-# for _ in range(19):
-#     # events = getEvents(reader, frame)
-#     frame = getImage(reader)
-
 trajectory = []
-debug_frame = np.full((260,346,3), 0, 'uint8')
+image_last_updated = 0
+last_render = time.time()
 while reader.isRunning():
+
+    #######################################
+    # event process
+    #######################################
+    original_event_frame = np.full((260,346,3), 0, 'uint8')
+    annotated_event_frame = np.full((260,346,3), 0, 'uint8')
     # events are formated in the following way: [x, y, self.t, p]
-    annotated = np.full((260,346,3), 0, 'uint8')
-    original_frame = None
-    if track_by == "event":
-        original_frame = np.full((260,346,3), 0, 'uint8')
-        annotated = np.full((260,346,3), 0, 'uint8')
-        events = getEvents(reader, original_frame)
+    events = getEvents(reader, original_event_frame)
 
-        print("\nREMOT Process:")
-        live_au, tracking_state, au_fifo = remot.Process(events, True)
-        
-        if len(live_au):
-            print("result:")
-        else:
-            print("Not tracking")
+    print("\nREMOT Process:")
+    live_au, tracking_state, au_fifo = remot.Process(events, True)
+    
+    if len(live_au):
+        print("result:")
+    else:
+        print("Not tracking")
 
-        for au_id in live_au:
-            tracking_id, tracking_ts = tracking_state[au_id]
-            events = au_fifo[au_id]
-            print(f'AU {au_id} tracking object {tracking_id} ts: {tracking_ts}')
-            event_to_frame(annotated, au_fifo[au_id], cmap[tracking_id])
+    for au_id in live_au:
+        tracking_id, tracking_ts = tracking_state[au_id]
+        events = au_fifo[au_id]
+        print(f'AU {au_id} tracking object {tracking_id} ts: {tracking_ts}')
+        event_to_frame(annotated_event_frame, au_fifo[au_id], cmap[tracking_id % len(cmap)])
 
-            if tracking_id > len(trajectory) - 1:
-                print("Add new tracker")
-                trajectory.append(Trajectory(tracking_id))
-            trajectory[tracking_id].update(events)
-        
-        for t in trajectory:
-            t.draw(annotated)
+        if tracking_id > len(trajectory) - 1:
+            print("Add new tracker")
+            trajectory.append(Trajectory(tracking_id))
+        trajectory[tracking_id].update(events)
+    
+    for t in trajectory:
+        t.draw(annotated_event_frame)
 
-    elif track_by == "image":
-        frame = getImage(reader)
+    #######################################
+    # image process
+    #######################################
+    if events[-1, 2] > image_last_updated:
+        (original_image_frame, image_last_updated) = getImage(reader)
         if last_frame is None:
             for _ in range(4):
-                frame = getImage(reader)
-                backSub.apply(frame)
-            last_frame = frame.copy()
-        else:
-            fgmask = backSub.apply(frame)
-            bgmask = cv.bitwise_not(fgmask)
-            frame = increase_brightness(frame, 40)
-            fg = cv.bitwise_and(frame, frame, mask = fgmask)
-            bg = cv.bitwise_and(last_frame, last_frame, mask=bgmask)
-            blended = cv.add(fg, bg)
-            last_frame = blended.copy()
-            annotated = blended
+                (original_image_frame, image_last_updated) = getImage(reader)
+                backSub.apply(original_image_frame)
+            last_frame = original_image_frame.copy()
 
-    combined = np.concatenate((original_frame, annotated), axis = 0)
-    cv.putText(combined, f"pkt#: {read_cnt}", (0, 32), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
-    cv.imshow('frame', combined)
-    # cv.imshow('frame', events)
+        annotated_image_frame = original_image_frame.copy()
+        fgmask = backSub.apply(annotated_image_frame)
+        bgmask = cv.bitwise_not(fgmask)
+        # annotated_image_frame = increase_brightness(annotated_image_frame, 40)
+        fg = cv.bitwise_and(annotated_image_frame, annotated_image_frame, mask = fgmask)
+        bg = cv.bitwise_and(last_frame, last_frame, mask=bgmask)
+        blended = cv.add(fg, bg)
+        last_frame = blended.copy()
+        annotated_image_frame = blended
+        cv.putText(original_image_frame, "Original image frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+        cv.putText(annotated_image_frame, "Annotated image frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+
+    cv.putText(original_event_frame, "Original event packet", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+    cv.putText(annotated_event_frame, "Annotated event frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+
+
+    combined_event_frame = np.concatenate((original_event_frame, annotated_event_frame), axis = 0)
+    combined_image_frame = np.concatenate((original_image_frame, annotated_image_frame), axis = 0)
+    combined_frame = np.concatenate((combined_event_frame, combined_image_frame), axis = 1)
+
+    cv.putText(combined_frame, f"event pkt #: {event_pkt_cnt}", (0, 48), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+    cv.putText(combined_frame, f"image frame #: {image_frame_cnt}", (0, 64), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+
+    current_time = time.time()
+    update_rate = 1.0 / (current_time - last_render)
+    last_render = current_time
+    cv.putText(combined_frame, f"Process rate: {update_rate:2f}", (0, 80), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+
+    cv.imshow('frame', combined_frame)
+
     key = cv.waitKey(frame_delay) & 0xFF
     if key == ord('q'):
-        print("read cnt = ", read_cnt)
+        print(f'event pkt cnt = {event_pkt_cnt} image frame cnt = {image_frame_cnt}')
         exit(0)
     elif key == ord('w'):
         frame_delay  = max(1, frame_delay - 10)
@@ -211,8 +231,14 @@ while reader.isRunning():
                 events = getEvents(reader)
             elif track_by == "image":
                 img = getImage(reader)
-            # read_cnt += 1
-        print(read_cnt)
+        print(f'event pkt cnt = {event_pkt_cnt} image frame cnt = {image_frame_cnt}')
+    elif key == ord('c'):
+        print("Clear previous tracking")
+        for t in trajectory:
+            t.kill()
+        (original_image_frame, image_last_updated) = getImage(reader)
+        backSub.apply(original_image_frame)
+        last_frame = original_image_frame
 
 cv.putText(frame, "Press Q to exit", (50,50), cv.FONT_HERSHEY_SIMPLEX, 1, (0,200,0), 2, cv.LINE_AA)
 cv.imshow('frame', frame)

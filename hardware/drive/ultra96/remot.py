@@ -173,7 +173,7 @@ class REMOT():
             flag3 = (self.AUs.auBox[idx][1] + self.AUs.auBox[idx][3]) / 2 < self.bdkill
             if flag1 or flag2 or flag3:
                 idxDel.append(idx)
-                print(idx, "is killed due to ", "timeout: ", flag1, "size: ", flag2, "bdkill: ", flag3)
+                # print(idx, "is killed due to ", "timeout: ", flag1, "size: ", flag2, "bdkill: ", flag3)
                 # print("ts: ", ts)
                 # print("np.max(self.AUs.au_event_fifo[idx][:, 2]): ", np.max(self.AUs.au_event_fifo[idx][:, 2]))
                                  

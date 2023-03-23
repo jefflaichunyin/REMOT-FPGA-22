@@ -9,6 +9,7 @@ class Trajectory:
         self.trajectory = []
         self.track_window = (173, 130, 346, 240)
         self.alive = False
+        self.defunc = False
 
     def event_to_frame(self, events, color):
         frame = np.full((260,346,3), 0, 'uint8')
@@ -27,7 +28,23 @@ class Trajectory:
         # print(f'tracker {self.tracking_id} center: {center}')
         if not np.all(center == 0):
             self.alive = True
+            self.defunc = False
             self.trajectory.append(rotated_rect)
+
+    def change_brightness(self, frame, value):
+        hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
+        h, s, v = cv.split(hsv)
+
+        lim = 255 - value
+        v[v > lim] = 255
+        v[v <= lim] += value
+
+        final_hsv = cv.merge((h, s, v))
+        img = cv.cvtColor(final_hsv, cv.COLOR_HSV2BGR)
+        return img
+    
+    def kill(self):
+        self.defunc = True
 
     def draw(self, frame):
         if len(self.trajectory) == 0:
@@ -41,6 +58,8 @@ class Trajectory:
             cv.polylines(frame,[box_points],True, (0,255,255), 2)
         self.alive = False
         # print(f'tracker {self.tracking_id} traj: {self.trajectory}')
+        if self.defunc:
+            return
         # connect tracking points
         previous_center = None
         for point in self.trajectory:
