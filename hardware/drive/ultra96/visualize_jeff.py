@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 from pycaer import davis
 from threading import Event
+import time
 
 davis.open()
 

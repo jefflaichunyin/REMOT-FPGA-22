@@ -99,7 +99,7 @@ class REMOT():
             else:
                 idxDel.append(j)
 
-            print(f"Identified {np.unique(idxGroup).size} clusters in AU {j}")
+            # print(f"Identified {np.unique(idxGroup).size} clusters in AU {j}")
 
             # find cluster with most events
             idxTk = np.argmax([sum(idxGroup == idx)
@@ -141,7 +141,7 @@ class REMOT():
                 continue
             
             write_au_idx = np.min(idxAU)
-            print("merging{} to {}".format(idxAU, write_au_idx) )
+            # print("merging{} to {}".format(idxAU, write_au_idx) )
             events = np.concatenate(
                 [self.AUs.au_event_fifo[idx] for idx in idxAU], axis=0) 
             events = np.unique(events, axis=0)

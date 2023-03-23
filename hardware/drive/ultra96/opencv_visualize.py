@@ -34,7 +34,6 @@ with open(config_dir, "r") as file:
 config = ARGS(config)
 remot = REMOT(config)
 
-track_by = "event"
 event_pkt_cnt = 0
 image_frame_cnt = 0
 last_frame = None
@@ -131,8 +130,8 @@ def getImage(recording):
 #         roi_select_state = 0
 
 
-frame_delay = 200
-frame_delay_default = 40
+frame_delay = 1
+
 reader = dv.io.MonoCameraRecording(sys.argv[1])
 cv.namedWindow('frame', cv.WINDOW_NORMAL)
 cv.resizeWindow('frame', 346*3, 260*3)
@@ -152,13 +151,13 @@ while reader.isRunning():
     # events are formated in the following way: [x, y, self.t, p]
     events = getEvents(reader, original_event_frame)
 
-    print("\nREMOT Process:")
+    # print("\nREMOT Process:")
     live_au, tracking_state, au_fifo = remot.Process(events, True)
     
-    if len(live_au):
-        print("result:")
-    else:
-        print("Not tracking")
+    # if len(live_au):
+    #     print("result:")
+    # else:
+    #     print("Not tracking")
 
     for au_id in live_au:
         tracking_id, tracking_ts = tracking_state[au_id]
@@ -226,16 +225,13 @@ while reader.isRunning():
         frame_delay  = min(1000, frame_delay + 10)
         print("frame delay = ", frame_delay)
     elif key == ord('d'):
-        for _ in range(10):
-            if track_by == "event":
-                events = getEvents(reader)
-            elif track_by == "image":
-                img = getImage(reader)
-        print(f'event pkt cnt = {event_pkt_cnt} image frame cnt = {image_frame_cnt}')
+        for _ in range(100):
+            events = getEvents(reader)
+        print(f'event pkt cnt = {event_pkt_cnt}')
     elif key == ord('c'):
         print("Clear previous tracking")
         for t in trajectory:
-            t.kill()
+            t.clear()
         (original_image_frame, image_last_updated) = getImage(reader)
         backSub.apply(original_image_frame)
         last_frame = original_image_frame
