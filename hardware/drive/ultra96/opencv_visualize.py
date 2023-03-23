@@ -4,6 +4,7 @@ from au_functions import ARGS
 from remot import REMOT
 from trajectory import Trajectory
 
+import cProfile
 import cv2 as cv
 import numpy as np
 import dv_processing as dv
@@ -56,6 +57,7 @@ trajectory = []
 image_last_updated = 0
 last_render = time.time()
 last_frame = None
+remot_prof = cProfile.Profile()
 
 def increase_brightness(img, value=30):
     hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
@@ -115,8 +117,12 @@ while reader.isRunning():
     annotated_event_frame = np.full((260,346,3), 0, 'uint8')
     # events are formated in the following way: [x, y, self.t, p]
     events = getEvents(reader, original_event_frame)
+
+    # remot_prof.enable()
     live_au, tracking_state, au_fifo = remot.Process(events, True)
-    
+    # remot_prof.create_stats()
+    # remot_prof.dump_stats('remot.prof')
+
     for au_id in live_au:
         tracking_id, tracking_ts = tracking_state[au_id]
         events = au_fifo[au_id]
