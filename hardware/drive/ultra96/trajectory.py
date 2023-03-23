@@ -29,6 +29,7 @@ class Trajectory:
             self.alive = True
             # self.defunc = False
             self.trajectory.append(rotated_rect)
+        return rotated_rect
 
     def change_brightness(self, frame, value):
         hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
