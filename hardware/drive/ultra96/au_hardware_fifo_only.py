@@ -149,7 +149,7 @@ class Au_fifo:
         out_fifo_idx = np.where(self.out_fifo!=0)
         out_events = self.out_fifo[out_fifo_idx]
         out_events = self.unpack_event(out_events)
-        out_events = out_events[np.argsort(out_events[:, 2])]
+        # out_events = out_events[np.argsort(out_events[:, 2])]
         return out_events
 
     def dump_all_au(self):
@@ -167,9 +167,16 @@ class Au_fifo:
         while not (self.au.read(0x0) & 0x2):
             pass
 
+    def dump_fifo_to_file(self):
+        out_fifo_idx = np.where(self.out_fifo!=0)
+        out_events = self.out_fifo[out_fifo_idx]
+        with open('fifo_dump.txt','a') as f:
+            np.savetxt(f, out_events, "%016X")
+
     def dump_single_au(self, number):
         number = int(number)
         self.read_fifo(number)
+        # self.dump_fifo_to_file()
         self.au_event_fifo[number] = self.fifo_parser()
         return self.au_event_fifo[number]
 
