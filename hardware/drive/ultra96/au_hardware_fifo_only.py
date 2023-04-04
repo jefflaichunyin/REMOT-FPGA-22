@@ -32,8 +32,8 @@ class Au_fifo:
         self.au.write(self.out_fifo_address, self.out_fifo.physical_address)
         self.au.write(self.init_fifo_address, self.in_fifo.physical_address)
         self.send = self.overlay.axi_dma_0.sendchannel
-        
-        self.au_event_fifo = [np.zeros([self.fifo_depth, 4], dtype=np.uint32) for i in range(self.au_number)] 
+        self.event_dtype = np.dtype(('u8', [('x', 'u2'), ('y', 'u2'), ('ts', 'u4')]))
+        self.au_event_fifo = [np.zeros([self.fifo_depth, 3], dtype=np.uint32) for i in range(self.au_number)] 
         self.status_reg = np.ones([self.au_number], dtype=np.uint8)
         self.total_time = 0  
         self.auBox = [[0,0,0,0] for i in range(self.au_number)]
@@ -41,9 +41,7 @@ class Au_fifo:
         self.amap = np.zeros([self.au_number, self.Height, self.Width], dtype=np.uint16)
         self.xbits = 16
         self.ybits = 16
-        self.tbits = 31
-        self.pbits = 1
-        self.event_dtype = np.dtype(('u8', [('x', 'u2'), ('y', 'u2'), ('pt', 'u4')]))
+        self.tbits = 32
         self.run_empty()
 
     def pack_status(self):
@@ -83,7 +81,7 @@ class Au_fifo:
         self.au.write(self.retrive_n_address, 100)  # do not retrieve AU fifo
 
         packed_event = self.pack_event(event)
-        self.in_fifo[:] = np.zeros(self.in_fifo.shape)
+        # self.in_fifo[:] = np.zeros(self.in_fifo.shape)
         self.in_fifo[0: event.shape[0]] = packed_event
         self.au.write(self.init_fifo_depth_address, event.shape[0])
         
@@ -130,20 +128,19 @@ class Au_fifo:
         #print("processing {} event using:{}".format(N, end-begin))
 
     def pack_event(self, events):
-        # event = events.astype(np.uint64)
+        events = events.astype(np.uint64)
         x = events[:, 0]
         y = events[:, 1]
         t = events[:, 2]
-        p = events[:, 3]
-        pack = x + (y << self.xbits) + (t << (self.xbits + self.ybits)) + (p << (self.xbits + self.ybits + self.tbits))        
-        return pack  
+        pack = x | (y << self.xbits) | (t << (self.xbits + self.ybits))
+        return pack.flatten()
 
     def unpack_event(self, packed_events):
-        x = packed_events & 0xFFFF
-        y = (packed_events >> self.xbits) & 0xFFFF
-        t = (packed_events >> (self.xbits + self.ybits)) & 0x7FFFFFFF
-        p = (packed_events >> (self.xbits + self.ybits + self.tbits)) & 0x1
-        events = np.vstack([x, y, t, p]).T  
+        packed_events = packed_events.astype(self.event_dtype)
+        events = np.ndarray((packed_events.size, 3), dtype=np.uint32)
+        events[:, 0] = packed_events['x']
+        events[:, 1] = packed_events['y']
+        events[:, 2] = packed_events['ts']
         return events    
 
     def fifo_parser(self):
@@ -171,8 +168,8 @@ class Au_fifo:
     def dump_fifo_to_file(self):
         out_fifo_idx = np.where(self.out_fifo!=0)
         out_events = self.out_fifo[out_fifo_idx]
-        with open('fifo_dump.txt','a') as f:
-            np.savetxt(f, out_events, "%016X")
+        # with open('fifo_dump.txt','a') as f:
+        #     np.savetxt(f, out_events, "%016X")
 
     def dump_single_au(self, number):
         number = int(number)
