@@ -128,10 +128,10 @@ while reader.isRunning():
     # events are formated in the following way: [x, y, self.t, p]
     events = getEvents(reader, original_event_frame)
 
-    remot_prof.enable()
+    # remot_prof.enable()
     live_au, tracking_state, au_fifo = remot.Process(events, True)
-    remot_prof.create_stats()
-    remot_prof.dump_stats('remot.prof')
+    # remot_prof.create_stats()
+    # remot_prof.dump_stats('remot.prof')
 
     for au_id in live_au:
         tracking_id, tracking_ts = tracking_state[au_id]

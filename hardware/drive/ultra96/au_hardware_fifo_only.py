@@ -137,15 +137,20 @@ class Au_fifo:
 
     def unpack_event(self, packed_events):
         packed_events = packed_events.astype(self.event_dtype)
-        events = np.ndarray((packed_events.size, 3), dtype=np.uint32)
-        events[:, 0] = packed_events['x']
-        events[:, 1] = packed_events['y']
-        events[:, 2] = packed_events['ts']
-        return events    
+        # events = np.ndarray((packed_events.size, 3), dtype=np.uint32)
+        # events[:, 0] = packed_events['x']
+        # events[:, 1] = packed_events['y']
+        # events[:, 2] = packed_events['ts']
+        events = np.vstack((packed_events['x'],packed_events['y'],packed_events['ts'])).T
+        # print(events)
+        return events
 
     def fifo_parser(self):
-        out_fifo_idx = np.where(self.out_fifo!=0)
-        out_events = self.out_fifo[out_fifo_idx]
+        # out_fifo_idx = np.where(self.out_fifo!=0)
+        event_cnt = self.out_fifo[0]
+        # print("out_fifo", self.out_fifo)
+        # print("out_fifo_idx", out_fifo_idx)
+        out_events = self.out_fifo[1:event_cnt]
         out_events = self.unpack_event(out_events)
         # out_events = out_events[np.argsort(out_events[:, 2])]
         return out_events
