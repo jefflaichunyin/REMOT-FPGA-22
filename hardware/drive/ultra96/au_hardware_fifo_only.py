@@ -32,7 +32,7 @@ class Au_fifo:
         self.au.write(self.out_fifo_address, self.out_fifo.physical_address)
         self.au.write(self.init_fifo_address, self.in_fifo.physical_address)
         self.send = self.overlay.axi_dma_0.sendchannel
-        
+        self.event_dtype = np.dtype(('u8', [('x', 'u2'), ('y', 'u2'), ('pt', 'u4')]))
         self.au_event_fifo = [np.zeros([self.fifo_depth, 4], dtype=np.uint32) for i in range(self.au_number)] 
         self.status_reg = np.ones([self.au_number], dtype=np.uint8)
         self.total_time = 0  
@@ -43,7 +43,6 @@ class Au_fifo:
         self.ybits = 16
         self.tbits = 31
         self.pbits = 1
-        self.event_dtype = np.dtype(('u8', [('x', 'u2'), ('y', 'u2'), ('pt', 'u4')]))
         self.run_empty()
 
     def pack_status(self):

@@ -1,13 +1,10 @@
 from au_functions import *
 from au_hardware_fifo_only import Au_fifo
 import numpy as np
-
 from sklearn.cluster import DBSCAN, AgglomerativeClustering
-from scipy.spatial.distance import squareform, directed_hausdorff
-from itertools import combinations
+from scipy.spatial.distance import directed_hausdorff
 
-from pynq import Overlay 
-from pynq import allocate
+import csv
 
 class REMOT():
     def __init__(self, args):

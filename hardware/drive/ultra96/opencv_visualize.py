@@ -11,6 +11,16 @@ import dv_processing as dv
 from matplotlib import pyplot as plt
 import sys
 import time
+import csv
+import pynq
+
+rails = pynq.get_rails()
+
+perf_log = csv.writer(open('perf.log.csv', 'w+'))
+perf_log.writerow(['packet_cnt', 'event_cnt', 'object_cnt', 'process_rate', 'power'])
+
+track_log = csv.writer(open('track.log.csv', 'w+'))
+track_log.writerow(['packet_cnt', 'object id', 'AU id', 'x', 'y', 'r'])
 
 config_dir = "./config/shape_6dof_fifo.yml"
 
@@ -133,8 +143,10 @@ while reader.isRunning():
             print("Add new tracker")
             trajectory.append(Trajectory(tracking_id))
         result = trajectory[tracking_id].update(events)
-    
+        track_log.writerow([event_pkt_cnt, tracking_id, au_id, result[0][0], result[0][1], result[2]])
+
         print(f'AU {au_id} tracking object {tracking_id} result: {result}')
+        
     if not headless:
         for t in trajectory:
             t.draw(annotated_event_frame)
@@ -168,11 +180,11 @@ while reader.isRunning():
 
     print(f'evnet packet count: {event_pkt_cnt}')
     print(f'update rate: {update_rate}')
+    perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, rails['PSINT_FP'].power.value])
 
     if not headless:
         cv.putText(original_event_frame, "Original event packet", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
         cv.putText(annotated_event_frame, "Annotated event frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
-
 
         combined_event_frame = np.concatenate((original_event_frame, annotated_event_frame), axis = 0)
         combined_image_frame = np.concatenate((original_image_frame, annotated_image_frame), axis = 0)
