@@ -10,7 +10,7 @@
 
 #define XBITS 16
 #define YBITS 16
-#define TBITS 31
+#define TBITS 32
 #define PBITS 1
 
 typedef ap_uint<XBITS> x_type;
@@ -24,7 +24,6 @@ typedef struct event{
 	x_type x;
 	y_type y;
 	t_type t;
-	p_type p;
 } event;
 
 typedef ap_uint<64> event_pack_t;
