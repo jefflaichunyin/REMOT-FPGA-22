@@ -43,6 +43,7 @@ class Au_fifo:
         self.ybits = 16
         self.tbits = 31
         self.pbits = 1
+        self.event_dtype = np.dtype(('u8', [('x', 'u2'), ('y', 'u2'), ('pt', 'u4')]))
         self.run_empty()
 
     def pack_status(self):
