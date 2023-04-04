@@ -84,7 +84,7 @@ def getEvents(recording, frame = None):
         for event in events:
             if frame is not None:
                 frame[event.y(), event.x()] = (0,0,230) if event.polarity() else (0,230,0)
-            event_array[event_idx] = np.array([event.y(), event.x(), event.timestamp() & 0xFFFFFFFF, event.polarity()])
+            event_array[event_idx] = np.array([event.y(), event.x(), event.timestamp() & 0x7FFFFFFF, event.polarity()])
             event_idx += 1
     else:
         event_array = None

@@ -39,9 +39,9 @@ class Au_fifo:
         self.auBox = [[0,0,0,0] for i in range(self.au_number)]
         self.auNumber = [[0, 0] for i in range(self.au_number)]
         self.amap = np.zeros([self.au_number, self.Height, self.Width], dtype=np.uint16)
-        self.xbits = 10
-        self.ybits = 10
-        self.tbits = 32
+        self.xbits = 16
+        self.ybits = 16
+        self.tbits = 31
         self.pbits = 1
         self.run_empty()
 
@@ -138,9 +138,9 @@ class Au_fifo:
         return pack  
 
     def unpack_event(self, packed_events):
-        x = packed_events & 0x3FF
-        y = (packed_events >> self.xbits) & 0x3FF
-        t = (packed_events >> (self.xbits + self.ybits)) & 0xFFFFFFFF
+        x = packed_events & 0xFFFF
+        y = (packed_events >> self.xbits) & 0xFFFF
+        t = (packed_events >> (self.xbits + self.ybits)) & 0x7FFFFFFF
         p = (packed_events >> (self.xbits + self.ybits + self.tbits)) & 0x1
         events = np.vstack([x, y, t, p]).T  
         return events    
