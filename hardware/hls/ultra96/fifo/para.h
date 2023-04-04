@@ -1,19 +1,17 @@
 #define VBITS 16
-#define XBITS 10
-#define YBITS 10
-#define TBITS 32
 #define HEIGHT 180
 #define WIDTH 240
 #define KBITS 16 //log2(hight*witdth)
 #define OUTBITS 64
 #define N_AU 12
 #define FIFO_DEPTH 128
-#define PBITS 1
 #define PI_0 4
 #define dadd 2
 
-
-
+#define XBITS 16
+#define YBITS 16
+#define TBITS 31
+#define PBITS 1
 
 typedef ap_uint<XBITS> x_type;
 typedef ap_uint<YBITS> y_type;
