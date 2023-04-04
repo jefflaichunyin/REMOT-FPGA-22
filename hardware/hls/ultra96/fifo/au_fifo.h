@@ -120,12 +120,14 @@ void return_fifo(
 		event_pack_t event_fifo[N_AU][FIFO_DEPTH],
 		efifo_type* out_fifo
 ){
-
+	int event_cnt = 1;
 	for(int i = 0; i < FIFO_DEPTH; i++){
 #pragma HLS PIPELINE II=1
 		if(return_n < 0 || return_n >= N_AU) break;
-		out_fifo[i] = event_fifo[return_n][i];
+		if (event_fifo[return_n][i] != 0)
+			out_fifo[event_cnt++] = event_fifo[return_n][i];
 	}
+	out_fifo[0] = event_cnt - 1;
 }
 
 template<int Number>

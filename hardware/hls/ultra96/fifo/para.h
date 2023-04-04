@@ -11,12 +11,10 @@
 #define XBITS 16
 #define YBITS 16
 #define TBITS 32
-#define PBITS 1
 
 typedef ap_uint<XBITS> x_type;
 typedef ap_uint<YBITS> y_type;
 typedef ap_uint<TBITS> t_type;
-typedef ap_uint<PBITS> p_type;
 
 typedef ap_uint<32> status_type;
 
