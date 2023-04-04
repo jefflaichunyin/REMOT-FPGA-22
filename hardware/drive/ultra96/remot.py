@@ -3,8 +3,7 @@ from au_hardware_fifo_only import Au_fifo
 import numpy as np
 from sklearn.cluster import DBSCAN, AgglomerativeClustering
 from scipy.spatial.distance import directed_hausdorff
-
-import csv
+import pynq
 
 class REMOT():
     def __init__(self, args):
@@ -47,10 +46,18 @@ class REMOT():
         self.epsMer = 1
 
         self.globalID = -1
-
+        self.rails = pynq.get_rails()
         print("Bitfile = ", args.bitfile)
         self.AUs = Au_fifo(Height=self.ly, Width=self.lx, bitfile=args.bitfile, au_number=args.auNum, fifo_depth=args.auFifo)
 
+    def get_power(self):
+        total = 0.0
+        for k in self.rails:
+            r = self.rails[k]
+            if hasattr(r.power, "value"):
+                total += r.power.value
+        return total
+    
     def update_box(self, ts):
         live_au_list = np.where(self.AUs.status_reg == 0)[0]
         for i in live_au_list:

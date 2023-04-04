@@ -12,9 +12,6 @@ from matplotlib import pyplot as plt
 import sys
 import time
 import csv
-import pynq
-
-rails = pynq.get_rails()
 
 perf_log = csv.writer(open('perf.log.csv', 'w+'))
 perf_log.writerow(['packet_cnt', 'event_cnt', 'object_cnt', 'process_rate', 'power'])
@@ -180,7 +177,9 @@ while reader.isRunning():
 
     print(f'evnet packet count: {event_pkt_cnt}')
     print(f'update rate: {update_rate}')
-    perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, rails['PSINT_FP'].power.value])
+    # perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, remot.get_power()])
+    perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, 0])
+
 
     if not headless:
         cv.putText(original_event_frame, "Original event packet", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
