@@ -89,12 +89,12 @@ def getEvents(recording, frame = None):
         pass
     event_pkt_cnt += 1
     if events is not None:
-        event_array = np.ndarray((len(events), 4), dtype=np.uint64)
+        event_array = np.ndarray((len(events), 3), dtype=np.uint32)
         event_idx = 0
         for event in events:
             if frame is not None:
                 frame[event.y(), event.x()] = (0,0,230) if event.polarity() else (0,230,0)
-            event_array[event_idx] = np.array([event.y(), event.x(), event.timestamp() & 0x7FFFFFFF, event.polarity()])
+            event_array[event_idx] = np.array([event.y(), event.x(), event.timestamp() & 0xFFFFFFFF])
             event_idx += 1
     else:
         event_array = None
@@ -128,10 +128,10 @@ while reader.isRunning():
     # events are formated in the following way: [x, y, self.t, p]
     events = getEvents(reader, original_event_frame)
 
-    # remot_prof.enable()
+    remot_prof.enable()
     live_au, tracking_state, au_fifo = remot.Process(events, True)
-    # remot_prof.create_stats()
-    # remot_prof.dump_stats('remot.prof')
+    remot_prof.create_stats()
+    remot_prof.dump_stats('remot.prof')
 
     for au_id in live_au:
         tracking_id, tracking_ts = tracking_state[au_id]

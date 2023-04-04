@@ -142,7 +142,7 @@ class REMOT():
             events = np.concatenate(
                 [self.AUs.au_event_fifo[idx] for idx in idxAU], axis=0) 
             events = np.unique(events, axis=0)
-            events = events[np.argsort(events[:, 2])]
+            # events = events[np.argsort(events[:, 2])]
         
             if any([self.AUs.auNumber[idx][0] > 0 for idx in idxAU]):
                 idxAU = idxAU[[self.AUs.auNumber[idx][0] > 0 for idx in idxAU]]
@@ -197,7 +197,7 @@ class REMOT():
                 self.AUs.auNumber[idx][0] = self.globalID
 
     def Process(self, events, dump_au):
-        ts = events[-1, 2].astype(np.uint32)
+        ts = events[-1, 2]
         self.AUs.stream_in_events(events)
 
         if dump_au:
