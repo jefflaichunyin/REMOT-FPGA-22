@@ -111,7 +111,7 @@ if { $validate_required } {
 }
 
 # Create project
-create_project ${_xil_proj_name_} ./${_xil_proj_name_} -part xczu3eg-sbva484-1-i
+create_project -force ${_xil_proj_name_} ./${_xil_proj_name_} -part xczu3eg-sbva484-1-i
 
 # Set the directory path for the new project
 set proj_dir [get_property directory [current_project]]
@@ -158,7 +158,7 @@ set_property -name "sim.use_ip_compiled_libs" -value "1" -objects $obj
 set_property -name "simulator.activehdl_gcc_install_dir" -value "" -objects $obj
 set_property -name "simulator.activehdl_install_dir" -value "" -objects $obj
 # set_property -name "simulator.ies_gcc_install_dir" -value "" -objects $obj
-set_property -name "simulator.ies_install_dir" -value "" -objects $obj
+# set_property -name "simulator.ies_install_dir" -value "" -objects $obj
 set_property -name "simulator.modelsim_gcc_install_dir" -value "" -objects $obj
 set_property -name "simulator.modelsim_install_dir" -value "" -objects $obj
 set_property -name "simulator.questa_gcc_install_dir" -value "" -objects $obj
@@ -350,7 +350,7 @@ proc cr_bd_design_1 { parentCell } {
   xilinx.com:ip:proc_sys_reset:5.0\
   xilinx.com:ip:smartconnect:1.0\
   xilinx.com:hls:top:1.0\
-  xilinx.com:ip:zynq_ultra_ps_e:3.4\
+  xilinx.com:ip:zynq_ultra_ps_e:3.3\
   "
 
    set list_ips_missing ""
@@ -440,7 +440,7 @@ proc cr_bd_design_1 { parentCell } {
   set top_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:top:1.0 top_0 ]
 
   # Create instance: zynq_ultra_ps_e_0, and set properties
-  set zynq_ultra_ps_e_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:zynq_ultra_ps_e:3.4 zynq_ultra_ps_e_0 ]
+  set zynq_ultra_ps_e_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:zynq_ultra_ps_e:3.3 zynq_ultra_ps_e_0 ]
   set_property -dict [ list \
    CONFIG.PSU_BANK_0_IO_STANDARD {LVCMOS18} \
    CONFIG.PSU_BANK_1_IO_STANDARD {LVCMOS18} \
@@ -1743,7 +1743,7 @@ set_property -name "pr_configuration" -value "" -objects $obj
 set_property -name "srcset" -value "sources_1" -objects $obj
 set_property -name "incremental_checkpoint" -value "" -objects $obj
 set_property -name "auto_incremental_checkpoint" -value "0" -objects $obj
-set_property -name "incremental_checkpoint.directive" -value "" -objects $obj
+# set_property -name "incremental_checkpoint.directive" -value "" -objects $obj
 set_property -name "rqs_files" -value "" -objects $obj
 set_property -name "incremental_checkpoint.more_options" -value "" -objects $obj
 set_property -name "include_in_archive" -value "1" -objects $obj
