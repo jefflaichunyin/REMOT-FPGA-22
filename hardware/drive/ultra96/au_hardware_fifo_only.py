@@ -81,7 +81,7 @@ class Au_fifo:
         self.au.write(self.retrive_n_address, 100)  # do not retrieve AU fifo
 
         packed_event = self.pack_event(event)
-        # self.in_fifo[:] = np.zeros(self.in_fifo.shape)
+        self.in_fifo[:] = np.zeros(self.in_fifo.shape)
         self.in_fifo[0: event.shape[0]] = packed_event
         self.au.write(self.init_fifo_depth_address, event.shape[0])
         
