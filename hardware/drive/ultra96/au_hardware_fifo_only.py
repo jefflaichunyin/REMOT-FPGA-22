@@ -136,13 +136,20 @@ class Au_fifo:
         return pack.flatten()
 
     def unpack_event(self, packed_events):
+        # packed_events = packed_events.astype(self.event_dtype)
+        # events = np.vstack((packed_events['x'],packed_events['y'],packed_events['ts'])).T
+
         packed_events = packed_events.astype(self.event_dtype)
-        # events = np.ndarray((packed_events.size, 3), dtype=np.uint32)
-        # events[:, 0] = packed_events['x']
-        # events[:, 1] = packed_events['y']
-        # events[:, 2] = packed_events['ts']
-        events = np.vstack((packed_events['x'],packed_events['y'],packed_events['ts'])).T
-        # print(events)
+        events = np.ndarray((packed_events.size, 3), dtype=np.uint32)
+        events[:, 0] = packed_events['x']
+        events[:, 1] = packed_events['y']
+        events[:, 2] = packed_events['ts']
+
+        # x = packed_events & 0xFFFF
+        # y = (packed_events >> self.xbits) & 0xFFFF
+        # t = (packed_events >> (self.xbits + self.ybits)) & 0x7FFFFFFF
+        # p = (packed_events >> (self.xbits + self.ybits + self.tbits)) & 0x1
+        # events = np.vstack([x, y, t, p]).T  
         return events
 
     def fifo_parser(self):

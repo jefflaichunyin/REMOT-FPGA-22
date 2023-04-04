@@ -140,7 +140,7 @@ while reader.isRunning():
             print("Add new tracker")
             trajectory.append(Trajectory(tracking_id))
         result = trajectory[tracking_id].update(events)
-        track_log.writerow([event_pkt_cnt, tracking_id, au_id, result[0][0], result[0][1], result[2]])
+        # track_log.writerow([event_pkt_cnt, tracking_id, au_id, result[0][0], result[0][1], result[2]])
 
         print(f'AU {au_id} tracking object {tracking_id} result: {result}')
         
@@ -178,7 +178,7 @@ while reader.isRunning():
     print(f'evnet packet count: {event_pkt_cnt}')
     print(f'update rate: {update_rate}')
     # perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, remot.get_power()])
-    perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, 0])
+    # perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, 0])
 
 
     if not headless:
