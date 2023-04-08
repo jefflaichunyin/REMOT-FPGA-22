@@ -58,11 +58,11 @@ if not headless:
 
 event_pkt_cnt = 0
 image_frame_cnt = 0
-
+event_array = np.ndarray((5000, 3), dtype=np.uint32)
 backSub = cv.createBackgroundSubtractorKNN(20, 100, False)
 frame_delay = 1
 trajectory = []
-image_last_updated = 0
+image_last_updated = -1
 last_render = time.time()
 last_frame = None
 remot_prof = cProfile.Profile()
@@ -94,6 +94,8 @@ def getEvents(recording, frame = None):
                 frame[event.y(), event.x()] = (0,0,230) if event.polarity() else (0,230,0)
             event_array[event_idx] = np.array([event.y(), event.x(), event.timestamp() & 0xFFFFFFFF])
             event_idx += 1
+            # if event_idx == event_array.shape[0]:
+            #     break
     else:
         event_array = None
     return event_array
@@ -123,8 +125,10 @@ def event_to_frame(frame, events, color):
 with Pool(cpu_count()) as process_pool:
     remot = REMOT(config, process_pool)
     event_ts = 0
+    event_cnt = 0
     while reader.isRunning():
-        
+        # if event_pkt_cnt == 1200:
+        #     break
         #######################################
         # event process
         #######################################
@@ -134,6 +138,7 @@ with Pool(cpu_count()) as process_pool:
         # remot_prof.enable()
         events = getEvents(reader, original_event_frame)
         event_ts = events[-1, 2]
+        event_cnt = events.shape[0]
         # remot_prof.enable()
         live_au, tracking_state, au_fifo = remot.update(events)
         # remot_prof.create_stats()
@@ -146,11 +151,11 @@ with Pool(cpu_count()) as process_pool:
             if not headless:
                 event_to_frame(annotated_event_frame, au_fifo[au_id], cmap[tracking_id % len(cmap)])
 
-            # if tracking_id > len(trajectory) - 1:
-            #     # print("Add new tracker")
-            #     trajectory.append(Trajectory(tracking_id))
-            # result = trajectory[tracking_id].update(events)
-            # track_log.writerow([event_pkt_cnt, tracking_id, au_id, result[0][0], result[0][1], result[2]])
+            if tracking_id > len(trajectory) - 1:
+                # print("Add new tracker")
+                trajectory.append(Trajectory(tracking_id))
+            result = trajectory[tracking_id].update(events)
+            track_log.writerow([event_pkt_cnt, tracking_id, au_id, result[0][0], result[0][1], result[2]])
 
             # print(f'AU {au_id} tracking object {tracking_id} result: {result}')
             
@@ -188,7 +193,7 @@ with Pool(cpu_count()) as process_pool:
         print(f'event packet count: {event_pkt_cnt}')
         print(f'update rate: {update_rate}')
         # perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, remot.get_power()])
-        perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, 0])
+        perf_log.writerow([event_pkt_cnt, event_cnt, len(live_au), update_rate, 0])
 
 
         if not headless:
