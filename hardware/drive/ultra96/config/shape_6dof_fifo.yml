@@ -15,8 +15,10 @@ bdkill   : 20
 bdspawn1 : -1
 bdspawn2 : -1
 epsDiv   : 5
+minptsDiv: 1
 iomMer   : 0.1
 dsMer    : 30
+psProcessInverval: 5
 outfolder: 'result'
 merge    : 'IOM'
 split    : 'DBSCAN'

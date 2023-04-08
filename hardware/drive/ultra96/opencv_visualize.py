@@ -12,6 +12,8 @@ from matplotlib import pyplot as plt
 import sys
 import time
 import csv
+# from pathos.multiprocessing import ProcessingPool as Pool
+from multiprocessing import Pool, cpu_count
 
 perf_log = csv.writer(open('perf.log.csv', 'w+'))
 perf_log.writerow(['packet_cnt', 'event_cnt', 'object_cnt', 'process_rate', 'power'])
@@ -40,7 +42,6 @@ with open(config_dir, "r") as file:
     config = yaml.safe_load(file)
 
 config = ARGS(config)
-remot = REMOT(config)
 
 if len(sys.argv) >= 3:
     headless = int(sys.argv[2])
@@ -115,111 +116,123 @@ def event_to_frame(frame, events, color):
     frame[x, y] = color
     return frame
 
-while reader.isRunning():
+# original_event_frame = np.full((260,346,3), 0, 'uint8')
+# for _ in range(980):
+#     events = getEvents(reader, original_event_frame)
 
-    #######################################
-    # event process
-    #######################################
-    original_event_frame = np.full((260,346,3), 0, 'uint8')
-    annotated_event_frame = np.full((260,346,3), 0, 'uint8')
-    # events are formated in the following way: [x, y, self.t, p]
-    events = getEvents(reader, original_event_frame)
-
-    # remot_prof.enable()
-    live_au, tracking_state, au_fifo = remot.Process(events, True)
-    # remot_prof.create_stats()
-    # remot_prof.dump_stats('remot.prof')
-
-    for au_id in live_au:
-        tracking_id, tracking_ts = tracking_state[au_id]
-        events = au_fifo[au_id]
-
-        event_to_frame(annotated_event_frame, au_fifo[au_id], cmap[tracking_id % len(cmap)])
-
-        if tracking_id > len(trajectory) - 1:
-            print("Add new tracker")
-            trajectory.append(Trajectory(tracking_id))
-        result = trajectory[tracking_id].update(events)
-        # track_log.writerow([event_pkt_cnt, tracking_id, au_id, result[0][0], result[0][1], result[2]])
-
-        print(f'AU {au_id} tracking object {tracking_id} result: {result}')
+with Pool(cpu_count()) as process_pool:
+    remot = REMOT(config, process_pool)
+    event_ts = 0
+    while reader.isRunning():
         
-    if not headless:
-        for t in trajectory:
-            t.draw(annotated_event_frame)
+        #######################################
+        # event process
+        #######################################
+        original_event_frame = np.full((260,346,3), 0, 'uint8')
+        annotated_event_frame = np.full((260,346,3), 0, 'uint8')
+        # events are formated in the following way: [x, y, self.t, p]
+        # remot_prof.enable()
+        events = getEvents(reader, original_event_frame)
+        event_ts = events[-1, 2]
+        # remot_prof.enable()
+        live_au, tracking_state, au_fifo = remot.update(events)
+        # remot_prof.create_stats()
+        # remot_prof.dump_stats('remot.prof')
 
-    #######################################
-    # image process
-    #######################################
-    if not headless and events[-1, 2] > image_last_updated:
-        (original_image_frame, image_last_updated) = getImage(reader)
-        if last_frame is None:
-            for _ in range(4):
+        for au_id in live_au:
+            tracking_id, tracking_ts = tracking_state[au_id]
+            events = au_fifo[au_id]
+
+            if not headless:
+                event_to_frame(annotated_event_frame, au_fifo[au_id], cmap[tracking_id % len(cmap)])
+
+            # if tracking_id > len(trajectory) - 1:
+            #     # print("Add new tracker")
+            #     trajectory.append(Trajectory(tracking_id))
+            # result = trajectory[tracking_id].update(events)
+            # track_log.writerow([event_pkt_cnt, tracking_id, au_id, result[0][0], result[0][1], result[2]])
+
+            # print(f'AU {au_id} tracking object {tracking_id} result: {result}')
+            
+        if not headless:
+            for t in trajectory:
+                t.draw(annotated_event_frame)
+
+        #######################################
+        # image process
+        #######################################
+        if not headless and event_ts > image_last_updated:
+            (original_image_frame, image_last_updated) = getImage(reader)
+            if last_frame is None:
+                for _ in range(4):
+                    (original_image_frame, image_last_updated) = getImage(reader)
+                    backSub.apply(original_image_frame)
+                last_frame = original_image_frame.copy()
+
+            annotated_image_frame = original_image_frame.copy()
+            fgmask = backSub.apply(annotated_image_frame)
+            bgmask = cv.bitwise_not(fgmask)
+            # annotated_image_frame = increase_brightness(annotated_image_frame, 40)
+            fg = cv.bitwise_and(annotated_image_frame, annotated_image_frame, mask = fgmask)
+            bg = cv.bitwise_and(last_frame, last_frame, mask=bgmask)
+            blended = cv.add(fg, bg)
+            last_frame = blended.copy()
+            annotated_image_frame = blended
+            cv.putText(original_image_frame, "Original image frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+            cv.putText(annotated_image_frame, "Annotated image frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+
+        current_time = time.time()
+        update_rate = 1.0 / (current_time - last_render)
+        last_render = current_time
+
+        print(f'event packet count: {event_pkt_cnt}')
+        print(f'update rate: {update_rate}')
+        # perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, remot.get_power()])
+        perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, 0])
+
+
+        if not headless:
+            cv.putText(original_event_frame, "Original event packet", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+            cv.putText(annotated_event_frame, "Annotated event frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+
+            combined_event_frame = np.concatenate((original_event_frame, annotated_event_frame), axis = 0)
+            combined_image_frame = np.concatenate((original_image_frame, annotated_image_frame), axis = 0)
+            combined_frame = np.concatenate((combined_event_frame, combined_image_frame), axis = 1)
+
+            cv.putText(combined_frame, f"event pkt #: {event_pkt_cnt}", (0, 48), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+            cv.putText(combined_frame, f"image frame #: {image_frame_cnt}", (0, 64), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+
+            cv.putText(combined_frame, f"Process rate: {update_rate:2f}", (0, 80), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+            cv.imshow('frame', combined_frame)
+
+            key = cv.waitKey(frame_delay) & 0xFF
+            if key == ord('q'):
+                print(f'event pkt cnt = {event_pkt_cnt} image frame cnt = {image_frame_cnt}')
+                exit(0)
+            elif key == ord('w'):
+                frame_delay  = max(1, frame_delay - 10)
+                print("frame delay = ", frame_delay)
+            elif key == ord('s'):
+                frame_delay  = min(1000, frame_delay + 10)
+                print("frame delay = ", frame_delay)
+            elif key == ord('d'):
+                for _ in range(100):
+                    events = getEvents(reader)
+                print(f'event pkt cnt = {event_pkt_cnt}')
+            elif key == ord('c'):
+                print("Clear previous tracking")
+                for t in trajectory:
+                    t.clear()
                 (original_image_frame, image_last_updated) = getImage(reader)
                 backSub.apply(original_image_frame)
-            last_frame = original_image_frame.copy()
+                last_frame = original_image_frame
 
-        annotated_image_frame = original_image_frame.copy()
-        fgmask = backSub.apply(annotated_image_frame)
-        bgmask = cv.bitwise_not(fgmask)
-        # annotated_image_frame = increase_brightness(annotated_image_frame, 40)
-        fg = cv.bitwise_and(annotated_image_frame, annotated_image_frame, mask = fgmask)
-        bg = cv.bitwise_and(last_frame, last_frame, mask=bgmask)
-        blended = cv.add(fg, bg)
-        last_frame = blended.copy()
-        annotated_image_frame = blended
-        cv.putText(original_image_frame, "Original image frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
-        cv.putText(annotated_image_frame, "Annotated image frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
-
-    current_time = time.time()
-    update_rate = 1.0 / (current_time - last_render)
-    last_render = current_time
-
-    print(f'evnet packet count: {event_pkt_cnt}')
-    print(f'update rate: {update_rate}')
-    # perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, remot.get_power()])
-    # perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, 0])
-
+        # remot_prof.create_stats()
+        # remot_prof.dump_stats('remot.prof')
 
     if not headless:
-        cv.putText(original_event_frame, "Original event packet", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
-        cv.putText(annotated_event_frame, "Annotated event frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
-
-        combined_event_frame = np.concatenate((original_event_frame, annotated_event_frame), axis = 0)
-        combined_image_frame = np.concatenate((original_image_frame, annotated_image_frame), axis = 0)
-        combined_frame = np.concatenate((combined_event_frame, combined_image_frame), axis = 1)
-
-        cv.putText(combined_frame, f"event pkt #: {event_pkt_cnt}", (0, 48), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
-        cv.putText(combined_frame, f"image frame #: {image_frame_cnt}", (0, 64), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
-
-        cv.putText(combined_frame, f"Process rate: {update_rate:2f}", (0, 80), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
-        cv.imshow('frame', combined_frame)
-
-        key = cv.waitKey(frame_delay) & 0xFF
-        if key == ord('q'):
-            print(f'event pkt cnt = {event_pkt_cnt} image frame cnt = {image_frame_cnt}')
-            exit(0)
-        elif key == ord('w'):
-            frame_delay  = max(1, frame_delay - 10)
-            print("frame delay = ", frame_delay)
-        elif key == ord('s'):
-            frame_delay  = min(1000, frame_delay + 10)
-            print("frame delay = ", frame_delay)
-        elif key == ord('d'):
-            for _ in range(100):
-                events = getEvents(reader)
-            print(f'event pkt cnt = {event_pkt_cnt}')
-        elif key == ord('c'):
-            print("Clear previous tracking")
-            for t in trajectory:
-                t.clear()
-            (original_image_frame, image_last_updated) = getImage(reader)
-            backSub.apply(original_image_frame)
-            last_frame = original_image_frame
-
-if not headless:
-    frame = np.full((260,346,3), 255, 'uint8')
-    cv.putText(frame, "Press Q to exit", (50,50), cv.FONT_HERSHEY_SIMPLEX, 1, (0,200,0), 2, cv.LINE_AA)
-    cv.imshow('frame', frame)
-    while cv.waitKey(10) & 0xFF != ord('q'):
-        pass
+        frame = np.full((260,346,3), 255, 'uint8')
+        cv.putText(frame, "Press Q to exit", (50,50), cv.FONT_HERSHEY_SIMPLEX, 1, (0,200,0), 2, cv.LINE_AA)
+        cv.imshow('frame', frame)
+        while cv.waitKey(10) & 0xFF != ord('q'):
+            pass
