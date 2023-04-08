@@ -95,7 +95,7 @@ def Merge(status, fifo, box, number, args):
             continue
         
         write_au_idx = np.min(idxAU)
-        # print("merging{} to {}".format(idxAU, write_au_idx) )
+        # print("merging{} to {}".format(idxAU, write_au_idx))
         events = np.concatenate(
             [fifo[idx] for idx in idxAU], axis=0) 
         events = np.unique(events, axis=0)

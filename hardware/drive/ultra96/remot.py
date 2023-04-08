@@ -44,6 +44,7 @@ class REMOT():
             self.process_result.put(self.process_pool.apply_async(REMOT_Process, (ts, self.AUs.status_reg, self.AUs.au_event_fifo, self.AUs.auNumber, self.globalID, self.args)))
 
         if not self.process_result.empty() and self.process_result.queue[0].ready():
+        # if not self.process_result.empty():
             (status, fifo, number, global_id) = self.process_result.get().get()
             self.AUs.status_reg[:] = status
             # print("process status", status)

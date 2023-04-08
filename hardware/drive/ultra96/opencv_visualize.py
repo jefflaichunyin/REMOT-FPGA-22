@@ -15,7 +15,7 @@ import csv
 from multiprocessing import Pool, Queue, cpu_count
 
 perf_log = csv.writer(open('perf.log.csv', 'w+'))
-perf_log.writerow(['packet_cnt', 'event_cnt', 'object_cnt', 'process_rate', 'power'])
+perf_log.writerow(['packet_cnt', 'event_cnt', 'object_cnt', 'process_rate', 'event queue size', 'power'])
 
 track_log = csv.writer(open('track.log.csv', 'w+'))
 track_log.writerow(['packet_cnt', 'object id', 'AU id', 'x', 'y', 'r'])
@@ -54,7 +54,7 @@ if not headless:
 event_pkt_cnt = 0
 image_frame_cnt = 0
 backSub = cv.createBackgroundSubtractorKNN(20, 100, False)
-frame_delay = 500
+frame_delay = 1
 trajectory = []
 image_last_updated = -1
 last_render = time.time()
@@ -98,15 +98,15 @@ with Pool(cpu_count() - 1) as process_pool:
     davis_reader_result = process_pool.apply_async(DAVIS_Reader_Process)
     end_of_stream = False
 
-    for i in range(980):
-        event_pkt_cnt += 1
-        reader_queue.get()
+    # for i in range(980):
+    #     event_pkt_cnt += 1
+    #     reader_queue.get()
 
     while not reader_queue.full():
         pass
 
     while not davis_reader_result.ready() or not reader_queue.empty():
-        if event_pkt_cnt == 1200:
+        if event_pkt_cnt == 1300:
             break
         #######################################
         # event process
@@ -184,8 +184,8 @@ with Pool(cpu_count() - 1) as process_pool:
 
         print(f'event packet count: {event_pkt_cnt}')
         print(f'update rate: {update_rate}')
-        # perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, remot.get_power()])
-        perf_log.writerow([event_pkt_cnt, event_cnt, len(live_au), update_rate, reader_queue.qsize()])
+        # perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, reader_queue.qsize(), remot.get_power()])
+        perf_log.writerow([event_pkt_cnt, event_cnt, len(live_au), update_rate, reader_queue.qsize(), 0])
 
 
         if not headless:
@@ -214,13 +214,14 @@ with Pool(cpu_count() - 1) as process_pool:
                 print("frame delay = ", frame_delay)
             elif key == ord('d'):
                 for _ in range(100):
-                    events = getEvents(reader)
+                    event_pkt_cnt += 1
+                    reader_queue.get()
                 print(f'event pkt cnt = {event_pkt_cnt}')
             elif key == ord('c'):
                 print("Clear previous tracking")
                 for t in trajectory:
                     t.clear()
-                (original_image_frame, image_last_updated) = getImage(reader)
+                # (original_image_frame, image_last_updated) = getImage(reader)
                 backSub.apply(original_image_frame)
                 last_frame = original_image_frame
 

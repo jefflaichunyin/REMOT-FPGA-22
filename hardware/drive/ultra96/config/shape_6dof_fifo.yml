@@ -7,7 +7,7 @@ input    : 'dataset/shapes.mat'
 name     : 'shapes_fifo_'
 tFrame   : 10000
 tDel     : 2
-areaDel  : 64
+areaDel  : 32
 tLive    : 3
 areaLive : 256
 numLive  : 40
@@ -18,7 +18,7 @@ epsDiv   : 5
 minptsDiv: 1
 iomMer   : 0.1
 dsMer    : 30
-psProcessInverval: 5
+psProcessInverval: 4
 outfolder: 'result'
 merge    : 'IOM'
 split    : 'DBSCAN'
