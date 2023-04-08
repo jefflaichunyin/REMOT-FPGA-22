@@ -52,10 +52,16 @@ class Trajectory:
         
         # draw bounding box for latest position
         # cv.putText(annotated, f"x: {center[0]} y:{center[1]} r:{(ret[2]-90):3.2f}", (0, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+
         if self.alive:
             box_points = cv.boxPoints(self.trajectory[-1])
             box_points = np.int0(box_points)
             cv.polylines(frame,[box_points],True, (0,255,255), 2)
+            # print(self.trajectory[-1][0])
+            text_org = np.int0(self.trajectory[-1][0])
+            text_org[0] += 10
+            cv.putText(frame, f"#{self.tracking_id}", text_org, cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+
         self.alive = False
         # print(f'tracker {self.tracking_id} traj: {self.trajectory}')
         # connect tracking points

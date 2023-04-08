@@ -54,7 +54,7 @@ if not headless:
 event_pkt_cnt = 0
 image_frame_cnt = 0
 backSub = cv.createBackgroundSubtractorKNN(20, 100, False)
-frame_delay = 1
+frame_delay = 500
 trajectory = []
 image_last_updated = -1
 last_render = time.time()
@@ -111,7 +111,6 @@ with Pool(cpu_count() - 1) as process_pool:
         #######################################
         # event process
         #######################################
-        # original_event_frame = np.full((260,346,3), 0, 'uint8')
         annotated_event_frame = np.full((260,346,3), 0, 'uint8')
         # events are formated in the following way: [x, y, self.t, p]
         # remot_prof.enable()
