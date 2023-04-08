@@ -3,17 +3,16 @@ import yaml
 from au_functions import ARGS
 from remot import REMOT
 from trajectory import Trajectory
-
+from davis_reader import DAVIS_Reader_Process
 import cProfile
 import cv2 as cv
 import numpy as np
-import dv_processing as dv
 from matplotlib import pyplot as plt
 import sys
 import time
 import csv
 # from pathos.multiprocessing import ProcessingPool as Pool
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool, Queue, cpu_count
 
 perf_log = csv.writer(open('perf.log.csv', 'w+'))
 perf_log.writerow(['packet_cnt', 'event_cnt', 'object_cnt', 'process_rate', 'power'])
@@ -48,17 +47,12 @@ if len(sys.argv) >= 3:
 else:
     headless = 0
 
-if sys.argv[1] == 'camera':
-    reader = dv.io.CameraCapture()
-else:
-    reader = dv.io.MonoCameraRecording(sys.argv[1])
 if not headless:
     cv.namedWindow('frame', cv.WINDOW_NORMAL)
     cv.resizeWindow('frame', 346*3, 260*3)
 
 event_pkt_cnt = 0
 image_frame_cnt = 0
-event_array = np.ndarray((5000, 3), dtype=np.uint32)
 backSub = cv.createBackgroundSubtractorKNN(20, 100, False)
 frame_delay = 1
 trajectory = []
@@ -79,64 +73,53 @@ def increase_brightness(img, value=30):
     img = cv.cvtColor(final_hsv, cv.COLOR_HSV2BGR)
     return img
 
-def getEvents(recording, frame = None):
-    global event_pkt_cnt
-    try:
-        events = recording.getNextEventBatch()
-    except:
-        pass
-    event_pkt_cnt += 1
-    if events is not None:
-        event_array = np.ndarray((len(events), 3), dtype=np.uint32)
-        event_idx = 0
-        for event in events:
-            if frame is not None:
-                frame[event.y(), event.x()] = (0,0,230) if event.polarity() else (0,230,0)
-            event_array[event_idx] = np.array([event.y(), event.x(), event.timestamp() & 0xFFFFFFFF])
-            event_idx += 1
-            # if event_idx == event_array.shape[0]:
-            #     break
-    else:
-        event_array = None
-    return event_array
-
-def getImage(recording):
-    global image_frame_cnt
-    try:
-        frame = recording.getNextFrame()
-    except:
-        pass
-    if frame is not None:
-        image_frame_cnt += 1
-        return (frame.image, frame.timestamp & 0xFFFFFFFF)
-    else:
-        return np.full((260,346,3), 255, 'uint8')
-
 def event_to_frame(frame, events, color):
     y = events[:, 1]
     x = events[:, 0]
     frame[x, y] = color
     return frame
 
-# original_event_frame = np.full((260,346,3), 0, 'uint8')
-# for _ in range(980):
-#     events = getEvents(reader, original_event_frame)
 
-with Pool(cpu_count()) as process_pool:
+# for _ in range(980):
+#     event_batch = reader.getNextEventBatch()
+#     events = getEvents()
+
+from davis_reader import reader_queue
+original_image_frame = None
+annotated_image_frame = None
+
+with Pool(cpu_count() - 1) as process_pool:
     remot = REMOT(config, process_pool)
+    events_read_result = None
     event_ts = 0
     event_cnt = 0
-    while reader.isRunning():
-        # if event_pkt_cnt == 1200:
-        #     break
+    backsub_init_cnt = 4
+
+    davis_reader_result = process_pool.apply_async(DAVIS_Reader_Process)
+    end_of_stream = False
+
+    for i in range(980):
+        event_pkt_cnt += 1
+        reader_queue.get()
+
+    while not reader_queue.full():
+        pass
+
+    while not davis_reader_result.ready() or not reader_queue.empty():
+        if event_pkt_cnt == 1200:
+            break
         #######################################
         # event process
         #######################################
-        original_event_frame = np.full((260,346,3), 0, 'uint8')
+        # original_event_frame = np.full((260,346,3), 0, 'uint8')
         annotated_event_frame = np.full((260,346,3), 0, 'uint8')
         # events are formated in the following way: [x, y, self.t, p]
         # remot_prof.enable()
-        events = getEvents(reader, original_event_frame)
+        (event_result, image) = reader_queue.get()
+        event_pkt_cnt += 1
+
+        (events, original_event_frame, ts) = event_result
+
         event_ts = events[-1, 2]
         event_cnt = events.shape[0]
         # remot_prof.enable()
@@ -166,25 +149,35 @@ with Pool(cpu_count()) as process_pool:
         #######################################
         # image process
         #######################################
-        if not headless and event_ts > image_last_updated:
-            (original_image_frame, image_last_updated) = getImage(reader)
-            if last_frame is None:
-                for _ in range(4):
-                    (original_image_frame, image_last_updated) = getImage(reader)
-                    backSub.apply(original_image_frame)
-                last_frame = original_image_frame.copy()
+        if not headless and image is not None:
+            original_image_frame = image
 
-            annotated_image_frame = original_image_frame.copy()
-            fgmask = backSub.apply(annotated_image_frame)
-            bgmask = cv.bitwise_not(fgmask)
-            # annotated_image_frame = increase_brightness(annotated_image_frame, 40)
-            fg = cv.bitwise_and(annotated_image_frame, annotated_image_frame, mask = fgmask)
-            bg = cv.bitwise_and(last_frame, last_frame, mask=bgmask)
-            blended = cv.add(fg, bg)
-            last_frame = blended.copy()
-            annotated_image_frame = blended
-            cv.putText(original_image_frame, "Original image frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
-            cv.putText(annotated_image_frame, "Annotated image frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+            if backsub_init_cnt:
+                backSub.apply(original_image_frame)
+                backsub_init_cnt -= 1
+                if backsub_init_cnt == 0:
+                    last_frame = original_image_frame.copy()
+            else:
+                annotated_image_frame = original_image_frame.copy()
+                fgmask = backSub.apply(annotated_image_frame)
+                bgmask = cv.bitwise_not(fgmask)
+                # annotated_image_frame = increase_brightness(annotated_image_frame, 40)
+                fg = cv.bitwise_and(annotated_image_frame, annotated_image_frame, mask = fgmask)
+                bg = cv.bitwise_and(last_frame, last_frame, mask=bgmask)
+                blended = cv.add(fg, bg)
+                last_frame = blended.copy()
+                annotated_image_frame = blended
+                cv.putText(original_image_frame, "Original image frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+                cv.putText(annotated_image_frame, "Annotated image frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
+
+        if image is None and original_image_frame is None:
+            if last_frame is None:
+                original_image_frame = np.full((260,346,3), 0, 'uint8')
+            else:
+                original_image_frame = last_frame
+        
+        if annotated_image_frame is None:
+            annotated_image_frame = original_image_frame
 
         current_time = time.time()
         update_rate = 1.0 / (current_time - last_render)
@@ -193,7 +186,7 @@ with Pool(cpu_count()) as process_pool:
         print(f'event packet count: {event_pkt_cnt}')
         print(f'update rate: {update_rate}')
         # perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, remot.get_power()])
-        perf_log.writerow([event_pkt_cnt, event_cnt, len(live_au), update_rate, 0])
+        perf_log.writerow([event_pkt_cnt, event_cnt, len(live_au), update_rate, reader_queue.qsize()])
 
 
         if not headless:

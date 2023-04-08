@@ -23,7 +23,7 @@ class REMOT():
         self.pkt_cnt = 0
         self.process_pool = process_pool
         self.process_interval = args.psProcessInverval
-        self.process_result = Queue(maxsize=cpu_count())
+        self.process_result = Queue(maxsize=cpu_count()-2)
         self.live_au_list = np.where(self.AUs.status_reg==0)[0]
 
     def get_power(self):

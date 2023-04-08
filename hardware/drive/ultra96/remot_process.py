@@ -124,7 +124,10 @@ def Kill(ts, status, fifo, box, number, args):
         if fifo[idx].size == 0:
             idxDel.append(idx)
             continue
-        flag1 = ts - np.max(fifo[idx][:, 2]) > (args.tDel * args.tFrame)
+        ts = int(ts)
+        max_ts = int(np.max(fifo[idx][:, 2]))
+        tDel = args.tDel * args.tFrame
+        flag1 = ts - max_ts > tDel
         flag2 = bbArea(box[idx]) < args.areaDel
         flag3 = (box[idx][1] + box[idx][3]) / 2 < args.bdkill
         if flag1 or flag2 or flag3:
@@ -144,7 +147,7 @@ def UpdateID(ts, status, fifo, number, box, global_id, args):
     live_au_list = np.where(status==0)[0]
     for idx in live_au_list:
         if not number[idx][0] and \
-        ts - number[idx][1] > args.tLive * args.tFrame and \
+        int(ts - number[idx][1]) > args.tLive * args.tFrame and \
         bbArea(box[idx]) > args.areaLive and \
         fifo[idx].shape[0] > args.numLive and \
         box[idx][2] / 2 > args.bdspawn1 and \
