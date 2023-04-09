@@ -1,3 +1,4 @@
+psProcessInverval: 4
 auFifo   : 128
 auNum    : 12
 dAdd     : 2
@@ -5,20 +6,33 @@ lx       : 346
 ly       : 260
 input    : 'dataset/shapes.mat'
 name     : 'shapes_fifo_'
+
+
 tFrame   : 10000
+
+# tDel     : 2
+# areaDel  : 32
+# tLive    : 3
+# areaLive : 64
+# numLive  : 40
+# epsDiv   : 22
+# iomMer   : 0.1
+# dsMer    : 30
+
 tDel     : 2
-areaDel  : 32
+areaDel  : 16
 tLive    : 3
-areaLive : 256
-numLive  : 40
+areaLive : 32
+numLive  : 20
+epsDiv   : 22
+iomMer   : 0.1
+dsMer    : 30
+
+minptsDiv: 1
 bdkill   : 20
 bdspawn1 : -1
 bdspawn2 : -1
-epsDiv   : 5
-minptsDiv: 1
-iomMer   : 0.1
-dsMer    : 30
-psProcessInverval: 4
+
 outfolder: 'result'
 merge    : 'IOM'
 split    : 'DBSCAN'

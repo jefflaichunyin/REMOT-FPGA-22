@@ -55,7 +55,7 @@ class REMOT():
         #     self.live_au_list = np.where(self.AUs.status_reg==0)[0]
         #     self.AUs.sync_all_au()
         # else:
-        #     self.global_id = REMOT_Update(ts, self.AUs.status_reg, self.AUs.au_event_fifo, self.AUs.auNumber, self.global_id, self.args)
+        #     # self.global_id = REMOT_Update(ts, self.AUs.status_reg, self.AUs.au_event_fifo, self.AUs.auNumber, self.global_id, self.args)
         #     self.live_au_list = np.where(self.AUs.status_reg==0)[0]
 
         (status, fifo, number, global_id) = REMOT_Process(ts, self.AUs.status_reg, self.AUs.au_event_fifo, self.AUs.auNumber, self.global_id, self.args)

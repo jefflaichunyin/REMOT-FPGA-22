@@ -125,7 +125,7 @@ with Pool(cpu_count() - 1) as process_pool:
         live_au, tracking_state, au_fifo = remot.update(events)
         # remot_prof.create_stats()
         # remot_prof.dump_stats('remot.prof')
-
+        object_cnt = 0
         for au_id in live_au:
             tracking_id, tracking_ts = tracking_state[au_id] # tracking id == 0 when AU not tracking valid object
             events = au_fifo[au_id]
@@ -134,6 +134,7 @@ with Pool(cpu_count() - 1) as process_pool:
                 event_to_frame(annotated_event_frame, au_fifo[au_id], cmap[tracking_id % len(cmap)])
 
             if tracking_id > 0:
+                object_cnt += 1
                 if tracking_id > len(trajectory):
                     print("Add new tracker")
                     trajectory.append(Trajectory(tracking_id))
@@ -170,14 +171,8 @@ with Pool(cpu_count() - 1) as process_pool:
                 cv.putText(original_image_frame, "Original image frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
                 cv.putText(annotated_image_frame, "Annotated image frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
 
-        if image is None and original_image_frame is None:
-            if last_frame is None:
-                original_image_frame = np.full((260,346,3), 0, 'uint8')
-            else:
-                original_image_frame = last_frame
-        
-        if annotated_image_frame is None:
-            annotated_image_frame = original_image_frame.copy()
+
+
 
         current_time = time.time()
         update_rate = 1.0 / (current_time - last_render)
@@ -186,10 +181,19 @@ with Pool(cpu_count() - 1) as process_pool:
         print(f'event packet count: {event_pkt_cnt}')
         print(f'update rate: {update_rate}')
         # perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, reader_queue.qsize(), remot.get_power()])
-        perf_log.writerow([event_pkt_cnt, event_cnt, len(live_au), update_rate, reader_queue.qsize(), 0])
+        perf_log.writerow([event_pkt_cnt, event_cnt, object_cnt, update_rate, reader_queue.qsize(), 0])
 
 
         if not headless:
+            if image is None and original_image_frame is None:
+                if last_frame is None:
+                    original_image_frame = np.full((260,346,3), 0, 'uint8')
+                else:
+                    original_image_frame = last_frame
+            
+            if annotated_image_frame is None:
+                annotated_image_frame = original_image_frame.copy()
+
             cv.putText(original_event_frame, "Original event packet", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
             cv.putText(annotated_event_frame, "Annotated event frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
 
@@ -224,7 +228,7 @@ with Pool(cpu_count() - 1) as process_pool:
                     t.clear()
                 # (original_image_frame, image_last_updated) = getImage(reader)
                 backSub.apply(original_image_frame)
-                last_frame = original_image_frame
+                last_frame = original_image_frame.copy()
 
         # remot_prof.create_stats()
         # remot_prof.dump_stats('remot.prof')
