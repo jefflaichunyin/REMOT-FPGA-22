@@ -180,7 +180,7 @@ with Pool(cpu_count() - 1) as process_pool:
 
         print(f'event packet count: {event_pkt_cnt}')
         print(f'update rate: {update_rate}')
-        # perf_log.writerow([event_pkt_cnt, events.shape[0], len(live_au), update_rate, reader_queue.qsize(), remot.get_power()])
+        # perf_log.writerow([event_pkt_cnt, events.shape[0], event_cnt, update_rate, reader_queue.qsize(), remot.get_power()])
         perf_log.writerow([event_pkt_cnt, event_cnt, object_cnt, update_rate, reader_queue.qsize(), 0])
 
 
