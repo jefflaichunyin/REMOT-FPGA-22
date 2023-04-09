@@ -2,7 +2,6 @@ import numpy as np
 from au_functions import *
 
 from sklearn.cluster import DBSCAN, AgglomerativeClustering
-from scipy.spatial.distance import directed_hausdorff
 
 
 def write_au(status, fifo, event, number, args):
@@ -84,8 +83,9 @@ def Merge(status, fifo, box, number, args):
     live_au_list = np.where(status == 0)[0]
     if live_au_list.shape[0] <= 1: # if state reg only has one 0
         return
-    
-    idxGroup = clusterAu(np.array(box)[live_au_list], args.iomMer)
+    live_au_fifo = [fifo[i] for i in live_au_list]
+    idxGroup = clusterAu_hausdroff(live_au_fifo, args.dsMer)
+    # idxGroup = clusterAu(np.array(box)[live_au_list], args.iomMer)
     # print("Merge idxGroup", idxGroup)
     for j in range(max(idxGroup) + 1):
         idxAU = np.argwhere(idxGroup == j).flatten()
@@ -132,7 +132,7 @@ def Kill(ts, status, fifo, box, number, args):
         flag3 = (box[idx][1] + box[idx][3]) / 2 < args.bdkill
         if flag1 or flag2 or flag3:
             idxDel.append(idx)
-            # print(idx, "is killed due to ", "timeout: ", flag1, "size: ", flag2, "bdkill: ", flag3)
+            # print(idx, "is killed due to ", "timeout: ", flag1, "size: ", flag2, bbArea(box[idx]), "bdkill: ", flag3)
             # print("ts: ", ts)
             # print("np.max(self.AUs.au_event_fifo[idx][:, 2]): ", np.max(fifo[idx][:, 2]))
                                 
@@ -146,26 +146,37 @@ def Kill(ts, status, fifo, box, number, args):
 def UpdateID(ts, status, fifo, number, box, global_id, args):
     live_au_list = np.where(status==0)[0]
     for idx in live_au_list:
-        if not number[idx][0] and \
-        int(ts - number[idx][1]) > args.tLive * args.tFrame and \
-        bbArea(box[idx]) > args.areaLive and \
-        fifo[idx].shape[0] > args.numLive and \
-        box[idx][2] / 2 > args.bdspawn1 and \
-        box[idx][3] / 2 > args.bdspawn2:
-            global_id += 1
-            number[idx][0] = global_id
+        # print(f'AU{idx} ID{number[idx][0]} life {int(ts - number[idx][1])} area {bbArea(box[idx])} event {fifo[idx].shape[0]}')
+        if not number[idx][0]:
+            life_enough = int(ts - number[idx][1]) > args.tLive * args.tFrame
+            area_enough = bbArea(box[idx]) > args.areaLive
+            event_enough = fifo[idx].shape[0] > args.numLive
+            if life_enough and area_enough and event_enough:
+                global_id += 1
+                number[idx][0] = global_id
+                # print(f'Assigned {global_id}')
+            # else:
+                # print(f'ID not assigned due to life: {life_enough} area: {area_enough} event: {event_enough}')
     return global_id
+
+def REMOT_Update(ts, status, fifo, number, global_id, args):
+    au_box = [[0,0,0,0] for i in range(args.auNum)]
+    update_box(ts, status, fifo, au_box, args)
+    # Kill(ts, status, fifo, au_box, number, args)
+    return UpdateID(ts, status, fifo, number, au_box, global_id, args)
 
 def REMOT_Process(ts, status, fifo, number, global_id, args):
     # print("REMOT_Process", status)
     au_box = [[0,0,0,0] for i in range(args.auNum)]
     update_box(ts, status, fifo, au_box, args)
-    Merge(status, fifo, au_box, number, args)
-    Kill(ts, status, fifo, au_box, number, args)
+    # Merge(status, fifo, au_box, number, args)
+    # Kill(ts, status, fifo, au_box, number, args)
     Split(status, fifo, au_box, number, args)
     Merge(status, fifo, au_box, number, args)
     Kill(ts, status, fifo, au_box, number, args)
-    UpdateID(ts, status, fifo, number, au_box, global_id, args)
+
+    update_box(ts, status, fifo, au_box, args)
+    global_id = UpdateID(ts, status, fifo, number, au_box, global_id, args)
 
     return (status, fifo, number, global_id)
     # return (self.AUs.status_reg, self.AUs.au_event_fifo, self.AUs.au_number)

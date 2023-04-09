@@ -127,17 +127,18 @@ with Pool(cpu_count() - 1) as process_pool:
         # remot_prof.dump_stats('remot.prof')
 
         for au_id in live_au:
-            tracking_id, tracking_ts = tracking_state[au_id]
+            tracking_id, tracking_ts = tracking_state[au_id] # tracking id == 0 when AU not tracking valid object
             events = au_fifo[au_id]
 
             if not headless:
                 event_to_frame(annotated_event_frame, au_fifo[au_id], cmap[tracking_id % len(cmap)])
 
-            if tracking_id > len(trajectory) - 1:
-                # print("Add new tracker")
-                trajectory.append(Trajectory(tracking_id))
-            result = trajectory[tracking_id].update(events)
-            track_log.writerow([event_pkt_cnt, tracking_id, au_id, result[0][0], result[0][1], result[2]])
+            if tracking_id > 0:
+                if tracking_id > len(trajectory):
+                    print("Add new tracker")
+                    trajectory.append(Trajectory(tracking_id))
+                result = trajectory[tracking_id - 1].update(events)
+                track_log.writerow([event_pkt_cnt, tracking_id, au_id, result[0][0], result[0][1], result[2]])
 
             # print(f'AU {au_id} tracking object {tracking_id} result: {result}')
             
@@ -150,7 +151,7 @@ with Pool(cpu_count() - 1) as process_pool:
         #######################################
         if not headless and image is not None:
             original_image_frame = image
-
+            image_frame_cnt += 1
             if backsub_init_cnt:
                 backSub.apply(original_image_frame)
                 backsub_init_cnt -= 1
@@ -176,7 +177,7 @@ with Pool(cpu_count() - 1) as process_pool:
                 original_image_frame = last_frame
         
         if annotated_image_frame is None:
-            annotated_image_frame = original_image_frame
+            annotated_image_frame = original_image_frame.copy()
 
         current_time = time.time()
         update_rate = 1.0 / (current_time - last_render)

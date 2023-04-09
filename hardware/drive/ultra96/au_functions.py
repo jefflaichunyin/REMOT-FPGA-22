@@ -1,4 +1,6 @@
 import numpy as np
+from scipy.spatial.distance import directed_hausdorff
+
 class ARGS:
     def __init__(self, config):
         for key in config.keys():
@@ -51,6 +53,26 @@ def clusterAu(boxes, iom):
                 continue
             # print(f"Overlap ratio between {i} {j} is {bboxOverlapRatio(boxes[i], boxes[j])}")
             if bboxOverlapRatio(boxes[i], boxes[j]) >= iom:
+                idxGroup[j] = idxGroup[i]
+    
+    return idxGroup
+
+def clusterAu_hausdroff(fifo_events, dsMer):
+    sz = len(fifo_events)
+    idxGroup = np.zeros(sz, 'int') - 1
+    n = 0
+    
+    for i in range(sz):
+        if idxGroup[i] >= 0:
+            continue
+        else:
+            idxGroup[i] = n
+            n += 1
+        
+        for j in range(i + 1, sz):
+            if idxGroup[j] >= 0:
+                continue
+            if directed_hausdorff(fifo_events[i][:, :2], fifo_events[j][:, :2])[0] < dsMer:
                 idxGroup[j] = idxGroup[i]
     
     return idxGroup
