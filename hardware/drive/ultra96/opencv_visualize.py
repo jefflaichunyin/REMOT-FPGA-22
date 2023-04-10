@@ -57,7 +57,6 @@ backSub = cv.createBackgroundSubtractorKNN(20, 100, False)
 frame_delay = 1
 trajectory = []
 image_last_updated = -1
-last_render = time.time()
 last_frame = None
 remot_prof = cProfile.Profile()
 
@@ -76,7 +75,7 @@ def increase_brightness(img, value=30):
 def event_to_frame(frame, events, color):
     y = events[:, 1]
     x = events[:, 0]
-    frame[x, y] = color
+    frame[y, x] = color
     return frame
 
 
@@ -111,6 +110,7 @@ with Pool(cpu_count() - 1) as process_pool:
         #######################################
         # event process
         #######################################
+        start_time = time.time()
         annotated_event_frame = np.full((260,346,3), 0, 'uint8')
         # events are formated in the following way: [x, y, self.t, p]
         # remot_prof.enable()
@@ -171,12 +171,8 @@ with Pool(cpu_count() - 1) as process_pool:
                 cv.putText(original_image_frame, "Original image frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
                 cv.putText(annotated_image_frame, "Annotated image frame", (80, 16), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,200,0), 1, cv.LINE_AA)
 
-
-
-
         current_time = time.time()
-        update_rate = 1.0 / (current_time - last_render)
-        last_render = current_time
+        update_rate = 1.0 / (current_time - start_time)
 
         print(f'event packet count: {event_pkt_cnt}')
         print(f'update rate: {update_rate}')

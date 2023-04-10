@@ -14,7 +14,7 @@ class Trajectory:
         frame = np.full((260,346,3), 0, 'uint8')
         y = events[:, 1]
         x = events[:, 0]
-        frame[x, y] = color
+        frame[y, x] = color
         return frame
 
     def update(self, events):
