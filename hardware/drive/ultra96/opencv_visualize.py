@@ -104,6 +104,9 @@ with Pool(cpu_count() - 1) as process_pool:
     while not reader_queue.full():
         pass
 
+    # for i in range(200):
+    #     perf_log.writerow([-200+i, 0, 0, 0, reader_queue.qsize(), remot.get_power()])
+
     while not davis_reader_result.ready() or not reader_queue.empty():
         if event_pkt_cnt == 1300:
             break
@@ -176,7 +179,7 @@ with Pool(cpu_count() - 1) as process_pool:
 
         print(f'event packet count: {event_pkt_cnt}')
         print(f'update rate: {update_rate}')
-        # perf_log.writerow([event_pkt_cnt, events.shape[0], event_cnt, update_rate, reader_queue.qsize(), remot.get_power()])
+        # perf_log.writerow([event_pkt_cnt, event_cnt, object_cnt, update_rate, reader_queue.qsize(), remot.get_power()])
         perf_log.writerow([event_pkt_cnt, event_cnt, object_cnt, update_rate, reader_queue.qsize(), 0])
 
 
