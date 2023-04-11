@@ -42,34 +42,34 @@ class REMOT():
 
         if self.process_interval > 1:
             # do clustering in new process
-            if not self.process_result.full():
-                self.process_result.put(self.process_pool.apply_async(REMOT_Process, (ts, self.AUs.status_reg, self.AUs.au_event_fifo, self.AUs.auNumber, self.global_id, self.args)))
+            # if not self.process_result.full():
+            #     self.process_result.put(self.process_pool.apply_async(REMOT_Process, (ts, self.AUs.status_reg, self.AUs.au_event_fifo, self.AUs.auNumber, self.global_id, self.args)))
 
-            if self.pkt_cnt % self.process_interval == 0:
-                if self.process_result.empty():
-                    self.process_result.put(self.process_pool.apply_async(REMOT_Process, (ts, self.AUs.status_reg, self.AUs.au_event_fifo, self.AUs.auNumber, self.global_id, self.args)))
-                result = self.process_result.get()
-                if not result.ready():
-                    print("Process result not ready, have to block")
-                (status, fifo, number, global_id) = result.get()
-                self.AUs.status_reg[:] = status
-                # print("process status", status)
-                for i in range(self.args.auNum):
-                    self.AUs.au_event_fifo[i] = fifo[i]
-                    self.AUs.auNumber[i] = number[i]
-                    self.global_id = global_id
-                self.live_au_list = np.where(self.AUs.status_reg==0)[0]
-                self.AUs.sync_all_au()
-            else:
-                # self.global_id = REMOT_Update(ts, self.AUs.status_reg, self.AUs.au_event_fifo, self.AUs.auNumber, self.global_id, self.args)
-                self.live_au_list = np.where(self.AUs.status_reg==0)[0]
+            # if self.pkt_cnt % self.process_interval == 0:
+            #     if self.process_result.empty():
+            #         self.process_result.put(self.process_pool.apply_async(REMOT_Process, (ts, self.AUs.status_reg, self.AUs.au_event_fifo, self.AUs.auNumber, self.global_id, self.args)))
+            #     result = self.process_result.get()
+            #     if not result.ready():
+            #         print("Process result not ready, have to block")
+            #     (status, fifo, number, global_id) = result.get()
+            #     self.AUs.status_reg[:] = status
+            #     # print("process status", status)
+            #     for i in range(self.args.auNum):
+            #         self.AUs.au_event_fifo[i] = fifo[i]
+            #         self.AUs.auNumber[i] = number[i]
+            #         self.global_id = global_id
+            #     self.live_au_list = np.where(self.AUs.status_reg==0)[0]
+            #     self.AUs.sync_all_au()
+            # else:
+            #     # self.global_id = REMOT_Update(ts, self.AUs.status_reg, self.AUs.au_event_fifo, self.AUs.auNumber, self.global_id, self.args)
+            #     self.live_au_list = np.where(self.AUs.status_reg==0)[0]
 
             # do clustering in same process
-            # if self.pkt_cnt % self.process_interval == 0:
-            #     (status, fifo, number, global_id) = REMOT_Process(ts, self.AUs.status_reg, self.AUs.au_event_fifo, self.AUs.auNumber, self.global_id, self.args)
-            #     self.global_id = global_id
-            #     self.AUs.sync_all_au()
-            # self.live_au_list = np.where(self.AUs.status_reg==0)[0]
+            if self.pkt_cnt % self.process_interval == 0:
+                (status, fifo, number, global_id) = REMOT_Process(ts, self.AUs.status_reg, self.AUs.au_event_fifo, self.AUs.auNumber, self.global_id, self.args)
+                self.global_id = global_id
+                self.AUs.sync_all_au()
+            self.live_au_list = np.where(self.AUs.status_reg==0)[0]
         else:
             (status, fifo, number, global_id) = REMOT_Process(ts, self.AUs.status_reg, self.AUs.au_event_fifo, self.AUs.auNumber, self.global_id, self.args)
             self.global_id = global_id

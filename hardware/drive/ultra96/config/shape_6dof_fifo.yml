@@ -1,4 +1,4 @@
-psProcessInverval: 4
+psProcessInterval: 2
 auFifo   : 128
 auNum    : 12
 dAdd     : 2
@@ -33,6 +33,7 @@ bdkill   : 20
 bdspawn1 : -1
 bdspawn2 : -1
 
+drop_pkt : True
 outfolder: 'result'
 merge    : 'IOM'
 split    : 'DBSCAN'

@@ -101,8 +101,8 @@ with Pool(cpu_count() - 1) as process_pool:
     #     event_pkt_cnt += 1
     #     reader_queue.get()
 
-    while not reader_queue.full():
-        pass
+    # while not reader_queue.full():
+    #     pass
 
     # for i in range(200):
     #     perf_log.writerow([-200+i, 0, 0, 0, reader_queue.qsize(), remot.get_power()])

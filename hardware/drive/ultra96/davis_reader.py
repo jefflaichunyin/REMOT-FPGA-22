@@ -3,8 +3,9 @@ from multiprocessing import Queue
 from scipy import io
 import numpy as np
 import sys
+import time
 
-reader_queue = Queue(10)
+reader_queue = Queue(100)
 reader_source = sys.argv[1]
 
 def event_to_array_and_frame(events):
@@ -65,6 +66,14 @@ def DAVIS_Reader_Process():
             else:
                 image = None
             reader_result = (events, image)
-            reader_queue.put(reader_result)
+            
+            if reader_queue.full():
+                print("Queue full drop event packet")
+            else:
+                reader_queue.put(reader_result)
+            
+            print("Queue size", reader_queue.qsize())
+            if reader_source != "camera":
+                time.sleep(0.01)
 
     return 0
