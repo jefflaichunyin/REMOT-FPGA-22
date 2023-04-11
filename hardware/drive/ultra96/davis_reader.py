@@ -4,9 +4,14 @@ from scipy import io
 import numpy as np
 import sys
 import time
+import csv
 
 reader_queue = Queue(100)
 reader_source = sys.argv[1]
+
+csv_file = open('pkt.log.csv', 'w+')
+pkt_log = csv.writer(csv_file)
+pkt_log.writerow(['packet_cnt', 'packet_drop', 'queue size'])
 
 def event_to_array_and_frame(events):
     ts = 0
@@ -55,8 +60,14 @@ def DAVIS_Reader_Process():
             reader_result = ((events, frame, ts), None)
             reader_queue.put(reader_result)
     else:
+        packet_cnt = 0
+        drop_cnt = 0
+
         while reader.isRunning():
             events = reader.getNextEventBatch()
+            packet_cnt += 1
+            if packet_cnt == 1300:
+                break
             events = event_to_array_and_frame(events)
             event_ts = events[2]
             if event_ts > image_ts:
@@ -68,12 +79,17 @@ def DAVIS_Reader_Process():
             reader_result = (events, image)
             
             if reader_queue.full():
-                print("Queue full drop event packet")
+                drop_cnt += 1
+                print(f"Buffer full! dropped {drop_cnt} packets")
             else:
                 reader_queue.put(reader_result)
             
-            print("Queue size", reader_queue.qsize())
+            # print("Queue size", reader_queue.qsize())
             if reader_source != "camera":
                 time.sleep(0.01)
 
+            pkt_log.writerow([packet_cnt, drop_cnt, reader_queue.qsize()])
+
+        csv_file.close()
+        print("Reader process terminated")
     return 0
